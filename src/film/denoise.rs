@@ -64,8 +64,7 @@ pub fn denoise_rgb(
                             depth_weight*normal_weight
                         }else{1.0};
                         let idx=j*3;
-                        let diff=(0..3).map(|c| current[idx+c] as f32-color[c]);
-                        let variance=diff.iter().map(|d|d*d).sum::<f32>();
+                        let variance=(0..3).map(|c| {let delta=current[idx+c] as f32-color[c];delta*delta}).sum::<f32>();
                         // Reject strong RGB discontinuities independent of geometry.
                         let color_weight=(-variance/(3.0*40.0*40.0)).exp();
                         let weight=kernel[kx]*kernel[ky]*guide_weight*color_weight;

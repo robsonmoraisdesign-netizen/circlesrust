@@ -82,7 +82,7 @@ impl RectLight {
         let y = (pv * uu - pu * uv) / det;
         (x.abs() <= 1.0 && y.abs() <= 1.0).then_some(t)
     }
-    fn pdf_solid_angle(self, point: Vec3, direction: Vec3, distance: f32) -> f32 {
+    fn pdf_solid_angle(self, _point: Vec3, direction: Vec3, distance: f32) -> f32 {
         let cosine = self.normal().dot(-direction);
         if cosine <= 0.0 { return 0.0; }
         distance * distance / (self.area() * cosine)
@@ -355,8 +355,8 @@ fn trace(scene:&Scene,first:Ray,max_bounces:u32,rng:&mut Rng)->Vec3{
         let mut geometric=scene.bvh.triangle(hit.triangle_index).expect("valid triangle id").normal();
         let mut normal=scene.shading_normal(hit.triangle_index,hit.u,hit.v);
         if geometric.dot(ray.direction)>0.0 {
-            geometric=-geometric;
-            normal=-normal;
+            geometric = -geometric;
+            normal = -normal;
         }
         let view=-ray.direction;
         let point=hit.point(&ray);
