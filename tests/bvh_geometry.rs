@@ -12,8 +12,8 @@ fn near(a:f32,b:f32){assert!((a-b).abs()<0.0001,"{a} != {b}");}
 #[test]
 fn pluecker_triangle_hit_and_uv() {
     let r=ray(v(0.25,0.25,0.0),v(0.0,0.0,1.0));
-    let (t,u,v)=triangle_intersect(&r,&tri(2.0),r.t_max).unwrap();
-    near(t,2.0);near(u,0.25);near(v,0.25);
+    let (t,u,bary_v)=triangle_intersect(&r,&tri(2.0),r.t_max).unwrap();
+    near(t,2.0);near(u,0.25);near(bary_v,0.25);
     let opposite=ray(r.origin,v(0.0,0.0,-1.0));
     assert!(triangle_intersect(&opposite,&tri(2.0),opposite.t_max).is_none());
     let from_behind=ray(v(0.25,0.25,5.0),v(0.0,0.0,-1.0));
