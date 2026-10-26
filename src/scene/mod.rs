@@ -1,3 +1,4 @@
+pub mod obj;
 // SPDX-FileCopyrightText: 2011-2022 Blender Foundation
 // SPDX-License-Identifier: Apache-2.0
 //! Procedural test scene to validate the Rust path integrator.
@@ -87,5 +88,34 @@ pub fn studio_scene()->Scene {
     let mut scene = Scene::new(mesh.tris,mesh.materials,materials,light)
         .expect("studio scene mesh must be valid");
     scene.set_corner_normals(mesh.normals).expect("valid generated normals");
+    scene
+}
+
+
+/// Import an OBJ asset into the test studio with a default neutral material.
+/// No MTL/texture graph is loaded in this phase.
+pub fn obj_studio_scene(mut mesh:obj::ObjMesh)->Scene{
+    mesh.fit_to_studio();
+    let mut geometry=MeshBuilder::new();
+    geometry.quad(v(-8.0,-8.0,-0.02),v(8.0,-8.0,-0.02),
+        v(8.0,8.0,-0.02),v(-8.0,8.0,-0.02),0);
+    for (tri,normals) in mesh.triangles.into_iter().zip(mesh.corner_normals.into_iter()){
+        geometry.tris.push(tri);
+        geometry.materials.push(1);
+        geometry.normals.push(normals);
+    }
+    let materials=vec![
+        Material::new(v(0.45,0.48,0.51),0.0,0.85),
+        Material::new(v(0.66,0.68,0.72),0.2,0.32),
+    ];
+    let light=RectLight{
+        center:v(-0.50,-0.25,5.7),
+        half_u:v(1.75,0.0,0.0),
+        half_v:v(0.0,-1.25,0.0),
+        radiance:v(9.0,8.2,7.4),
+    };
+    let mut scene=Scene::new(geometry.tris,geometry.materials,materials,light)
+        .expect("imported OBJ scene is valid");
+    scene.set_corner_normals(geometry.normals).expect("OBJ generated normals are valid");
     scene
 }
