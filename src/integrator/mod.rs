@@ -254,7 +254,7 @@ fn trace(scene:&Scene,first:Ray,max_bounces:u32,rng:&mut Rng)->Vec3{
         };
         let material=scene.material_for(hit.triangle_index);
         let mut normal=scene.bvh.triangle(hit.triangle_index).expect("valid triangle id").normal();
-        if normal.dot(ray.direction)>0.0{normal=-normal;}
+        if normal.dot(ray.direction)>0.0{normal = -normal;}
         let view=-ray.direction;
         let point=hit.point(&ray);
         radiance=radiance+rgb_mul(throughput,direct_light(scene,point,normal,view,material,rng));
@@ -326,7 +326,7 @@ pub fn render_rgb(scene:&Scene,settings:RenderSettings)->Result<Vec<u8>,&'static
                 let base_y=chunk_index*chunk_rows;
                 for (local_y,row) in chunk.chunks_exact_mut(width*3).enumerate(){
                     let y=(base_y+local_y) as u32;
-                    for (x,pixel) in row.chunks_exact_mut(3).enumerate(){
+                    for (x,pixel) in row.as_chunks_mut::<3>().0.iter_mut().enumerate(){
                         let mut sum=Vec3::ZERO;
                         for s in 0..settings.samples{
                             let mut rng=Rng::new(y.wrapping_mul(settings.width).wrapping_add(x as u32),s,settings.seed);

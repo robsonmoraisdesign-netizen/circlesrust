@@ -6,7 +6,7 @@ use circlesrust::util::math::Vec3;
 
 fn v(x:f32,y:f32,z:f32)->Vec3{Vec3::new(x,y,z)}
 fn small()->RenderSettings{
-    RenderSettings{width:28,height:18,samples:3,max_bounces:3,exposure:1.1,seed:135,..Default::default()}
+    RenderSettings{width:28,height:18,samples:3,max_bounces:3,exposure:1.1,seed:135}
 }
 #[test]
 fn reproducible_multiple_samples(){
@@ -16,7 +16,7 @@ fn reproducible_multiple_samples(){
     let b=render_rgb(&scene,s).unwrap();
     assert_eq!(a,b,"render must not depend on thread scheduling");
     assert_eq!(a.len(),(s.width*s.height*3) as usize);
-    let distinct=a.chunks_exact(3).collect::<std::collections::HashSet<_>>();
+    let distinct=a.as_chunks::<3>().0.iter().collect::<std::collections::HashSet<_>>();
     assert!(distinct.len()>25,"image should have different shaded colors");
 }
 #[test]
@@ -41,7 +41,7 @@ fn png_bmp_export_headers_and_validation(){
     assert_eq!(&png[12..16],b"IHDR");
     assert_eq!(&png[16..20],&2u32.to_be_bytes());
     assert_eq!(&png[20..24],&2u32.to_be_bytes());
-    assert_eq!(&png[png.len()-8..png.len()-4],&[174,66,96,130]);
+    assert_eq!(&png[png.len()-4..],&[174,66,96,130]);
     let bmp=bmp_bytes(&pixels,2,2).unwrap();
     assert_eq!(&bmp[..2],b"BM");
     assert_eq!(&bmp[18..22],&2u32.to_le_bytes());
