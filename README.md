@@ -2,6 +2,22 @@
 
 **Motor original usado como referência:** [clonecircles](https://github.com/robsonmoraisdesign-netizen/clonecircles), branch `main`, commit `3eb35f85996baa6c1b2e19bf297b22745c85e321`. O repositório original é C/C++. Aqui a conversão é incremental: **ainda não existe um port completo do Cycles**.
 
+## Fase atual — BVH SAH e materiais OBJ/MTL em Rust
+
+- **BVH SAH:** a divisão por mediana foi substituída por amostragem em 16 bins e avaliação de custo de área superficial nos três eixos, seguindo a estrutura de `clonecircles/src/bvh/binning.cpp`. Se a partição degenerar, o algoritmo continua com fallback por mediana.
+- **Materiais OBJ/MTL:** o leitor OBJ agora preserva `mtllib` e `usemtl`, associando as faces aos materiais carregados. O leitor MTL suporta `newmtl`, `Kd` (cor), `Ns` (rugosidade aproximada), `Pr` (rugosidade PBR) e `Pm` (metalicidade PBR).
+- **CLI:** `--obj modelo.obj` procura automaticamente bibliotecas `.mtl` citadas no OBJ, na mesma pasta. Você também pode indicar `--mtl material.mtl` explicitamente.
+- **Testes:** cenas com dois materiais, triângulos agrupados espacialmente, interseções da BVH versus força bruta e casos degenerados de partição.
+
+Exemplos:
+
+```powershell
+.\circlesrust-preview.exe ModeloColorido.png 1280 720 128 --obj modelo.obj --denoise 3
+.\circlesrust-preview.exe ModeloManual.png 1280 720 128 --obj modelo.obj --mtl modelo.mtl --denoise 3
+```
+
+**Importante:** continua sendo um executável 100% Rust em CPU. O código C++ original é somente referência, **não** é compilado nem carregado. O leitor MTL não implementa texturas, `map_Kd`, transparência, refração, normal maps nem nós de shaders do Cycles. A BVH ainda não suporta spatial splits, instâncias nem motion blur.
+
 ## Nova fase: qualidade, normais suaves, MIS e importação OBJ
 
 O renderizador Rust CPU agora inclui interpolação de normais por vértice, interseção de raios com a luz retangular, MIS aproximado entre iluminação direta/BSDF/ambiente, pós-filtro guiado por normais e profundidade, e importação de geometria OBJ estática.
