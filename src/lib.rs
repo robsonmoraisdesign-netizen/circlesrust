@@ -1,6 +1,7 @@
-//! Partial Cycles-to-Rust CPU renderer: BVH, ray intersections and sampled BSDF path integration.
-//! This is not yet the complete Cycles engine or a GPU device backend.
+//! Incremental native Rust rendering modules derived from Blender Cycles.
+//! Current output uses a CPU path integrator, but not the full Cycles kernel/GPU.
 pub mod bvh;
 pub mod integrator;
 pub mod kernel;
+pub mod scene;
 pub mod util;
