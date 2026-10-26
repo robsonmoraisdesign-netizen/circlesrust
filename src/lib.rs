@@ -1,6 +1,6 @@
-//! Incremental Rust translation of Blender Cycles components.
-//! Static-triangle CPU BVH2 intersections are implemented.
-//! This is not yet the Cycles path tracer, material shader engine or GPU backend.
+//! Partial Cycles-to-Rust CPU renderer: BVH, ray intersections and sampled BSDF path integration.
+//! This is not yet the complete Cycles engine or a GPU device backend.
 pub mod bvh;
+pub mod integrator;
 pub mod kernel;
 pub mod util;
