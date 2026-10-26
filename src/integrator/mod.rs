@@ -396,6 +396,17 @@ impl Camera{
         let up=right.cross(forward);
         Self{origin,forward,right,up,tangent:(40.0f32.to_radians()*0.5).tan()}
     }
+    /// Deterministic pixel center for G-buffer/denoising guide data.
+    fn center_ray(self,x:u32,y:u32,options:RenderSettings)->Ray{
+        let dx=(x as f32+0.5)/options.width as f32;
+        let dy=(y as f32+0.5)/options.height as f32;
+        let aspect=options.width as f32/options.height as f32;
+        let px=(2.0*dx-1.0)*aspect*self.tangent;
+        let py=(1.0-2.0*dy)*self.tangent;
+        let direction=(self.forward+self.right*px+self.up*py)
+            .normalized().expect("center ray direction");
+        Ray::new(self.origin,direction,0.001,1000.0).expect("center ray")
+    }
     fn ray(self,x:u32,y:u32,options:RenderSettings,rng:&mut Rng)->Ray{
         let dx=(x as f32+rng.next_f32())/options.width as f32;
         let dy=(y as f32+rng.next_f32())/options.height as f32;
@@ -464,4 +475,47 @@ pub fn sample_pixel(scene:&Scene,settings:RenderSettings,x:u32,y:u32)->Result<Ve
         sum=sum+trace(scene,ray,s.max_bounces,&mut rng);
     }
     Ok(sum/s.samples as f32)
+}
+
+
+/// Generate first-hit guide buffers independently of the Monte Carlo sampling
+/// to preserve object boundaries during optional denoising.
+pub fn pixel_guides(
+    scene: &Scene, settings: RenderSettings
+) -> Result<Vec<crate::film::denoise::PixelGuide>, &'static str> {
+    use crate::film::denoise::PixelGuide;
+    let options = settings.validate()?;
+    let camera = Camera::studio();
+    let mut guides = Vec::with_capacity(options.width as usize * options.height as usize);
+    for y in 0..options.height {
+        for x in 0..options.width {
+            let ray = camera.center_ray(x,y,options);
+            let mesh_hit=scene.bvh.closest_hit(&ray);
+            let mesh_distance=mesh_hit.as_ref().map(|h|h.t).unwrap_or(ray.t_max);
+            if let Some(light_t)=scene.light.hit(&ray,mesh_distance){
+                guides.push(PixelGuide{
+                    normal:scene.light.normal(),depth:light_t,surface:Some(usize::MAX)
+                });
+            }else if let Some(hit)=mesh_hit {
+                let mut normal=scene.shading_normal(hit.triangle_index,hit.u,hit.v);
+                if normal.dot(ray.direction)>0.0{normal = -normal;}
+                guides.push(PixelGuide {
+                    normal,depth:hit.t,surface:Some(scene.triangle_materials[hit.triangle_index])
+                });
+            }else {
+                guides.push(PixelGuide::SKY);
+            }
+        }
+    }
+    Ok(guides)
+}
+
+/// Render pixels then optionally apply a geometry-aware a-trous postfilter.
+pub fn render_rgb_denoised(
+    scene:&Scene, settings:RenderSettings, strength:u8
+) -> Result<Vec<u8>, &'static str> {
+    let rgb=render_rgb(scene,settings)?;
+    if strength==0{return Ok(rgb);}
+    let guides=pixel_guides(scene,settings)?;
+    crate::film::denoise::denoise_rgb(&rgb,settings.width,settings.height,&guides,strength)
 }
