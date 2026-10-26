@@ -1,19 +1,27 @@
 // SPDX-FileCopyrightText: 2011-2022 Blender Foundation
 // SPDX-License-Identifier: Apache-2.0
-//! Procedural test scene to validate the Rust path integrator.
-//! The Cycles scene/object/mesh node graph has not been ported yet.
+// Procedural test scene to validate the Rust path integrator.
+// The Cycles scene/object/mesh node graph has not been ported yet.
+pub mod obj;
 
 use crate::integrator::{Material, RectLight, Scene};
 use crate::kernel::geometry::Triangle;
 use crate::util::math::Vec3;
 
 fn v(x:f32,y:f32,z:f32)->Vec3 {Vec3::new(x,y,z)}
-struct MeshBuilder {tris:Vec<Triangle>, materials:Vec<usize>}
+struct MeshBuilder {tris:Vec<Triangle>, materials:Vec<usize>, normals:Vec<Option<[Vec3;3]>>}
 impl MeshBuilder {
-    fn new()->Self {Self{tris:Vec::new(),materials:Vec::new()}}
+    fn new()->Self {Self{tris:Vec::new(),materials:Vec::new(),normals:Vec::new()}}
     fn triangle(&mut self,a:Vec3,b:Vec3,c:Vec3,material:usize){
         if let Some(t)=Triangle::new(a,b,c) {
-            self.tris.push(t);self.materials.push(material);
+            self.tris.push(t);self.materials.push(material);self.normals.push(None);
+        }
+    }
+    fn smooth_triangle(&mut self, vertices:[Vec3;3], corner_normals:[Vec3;3], material:usize) {
+        if let Some(triangle) = Triangle::new(vertices[0],vertices[1],vertices[2]) {
+            self.tris.push(triangle);
+            self.materials.push(material);
+            self.normals.push(Some(corner_normals));
         }
     }
     fn quad(&mut self,a:Vec3,b:Vec3,c:Vec3,d:Vec3,material:usize){
@@ -48,8 +56,8 @@ impl MeshBuilder {
                 let b=point(j+1,i);
                 let c=point(j+1,i+1);
                 let d=point(j,i+1);
-                self.triangle(a,b,c,material);
-                self.triangle(a,c,d,material);
+                self.smooth_triangle([a,b,c],[(a-center)/radius,(b-center)/radius,(c-center)/radius],material);
+                self.smooth_triangle([a,c,d],[(a-center)/radius,(c-center)/radius,(d-center)/radius],material);
             }
         }
     }
@@ -77,6 +85,37 @@ pub fn studio_scene()->Scene {
         half_v:v(0.0,-1.25,0.0),
         radiance:v(9.0,8.2,7.4),
     };
-    Scene::new(mesh.tris,mesh.materials,materials,light)
-        .expect("studio scene mesh must be valid")
+    let mut scene = Scene::new(mesh.tris,mesh.materials,materials,light)
+        .expect("studio scene mesh must be valid");
+    scene.set_corner_normals(mesh.normals).expect("valid generated normals");
+    scene
+}
+
+
+/// Import an OBJ asset into the test studio with a default neutral material.
+/// No MTL/texture graph is loaded in this phase.
+pub fn obj_studio_scene(mut mesh:obj::ObjMesh)->Scene{
+    mesh.fit_to_studio();
+    let mut geometry=MeshBuilder::new();
+    geometry.quad(v(-8.0,-8.0,-0.02),v(8.0,-8.0,-0.02),
+        v(8.0,8.0,-0.02),v(-8.0,8.0,-0.02),0);
+    for (tri,normals) in mesh.triangles.into_iter().zip(mesh.corner_normals){
+        geometry.tris.push(tri);
+        geometry.materials.push(1);
+        geometry.normals.push(normals);
+    }
+    let materials=vec![
+        Material::new(v(0.45,0.48,0.51),0.0,0.85),
+        Material::new(v(0.66,0.68,0.72),0.2,0.32),
+    ];
+    let light=RectLight{
+        center:v(-0.50,-0.25,5.7),
+        half_u:v(1.75,0.0,0.0),
+        half_v:v(0.0,-1.25,0.0),
+        radiance:v(9.0,8.2,7.4),
+    };
+    let mut scene=Scene::new(geometry.tris,geometry.materials,materials,light)
+        .expect("imported OBJ scene is valid");
+    scene.set_corner_normals(geometry.normals).expect("OBJ generated normals are valid");
+    scene
 }

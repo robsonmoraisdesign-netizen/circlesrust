@@ -1,6 +1,7 @@
-//! Image output for Rust diagnostic/path-tracing previews.
-//! PNG is dependency-free using zlib stored DEFLATE blocks; BMP compatibility
-//! is retained from the first CPU/BVH preview.
+// Image output for Rust diagnostic/path-tracing previews.
+// PNG is dependency-free using zlib stored DEFLATE blocks; BMP compatibility
+// is retained from the first CPU/BVH preview.
+pub mod denoise;
 
 use std::io;
 use std::path::Path;

@@ -20,6 +20,13 @@ fn max_color(a: Vec3) -> f32 {
 fn mix(a: Vec3, b: Vec3, t: f32) -> Vec3 {
     a * (1.0 - t) + b * t
 }
+/// Veach-style power heuristic, beta=2, as used by light/BSDF MIS.
+fn power_heuristic(sample_pdf: f32, competing_pdf: f32) -> f32 {
+    if sample_pdf <= 0.0 { return 0.0; }
+    let a = sample_pdf * sample_pdf;
+    let b = competing_pdf * competing_pdf;
+    a / (a + b).max(1e-30)
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct Material {
@@ -52,11 +59,42 @@ impl RectLight {
         self.center + self.half_u * (2.0 * rng.next_f32() - 1.0)
                     + self.half_v * (2.0 * rng.next_f32() - 1.0)
     }
+
+    /// Intersection with a visible one-sided emitting rectangle.
+    /// Maps the point into the light's (possibly skewed) u,v basis.
+    fn hit(self, ray: &Ray, far: f32) -> Option<f32> {
+        let normal = self.normal();
+        let denom = normal.dot(ray.direction);
+        if denom >= -1e-7 { return None; }
+        let t = (self.center - ray.origin).dot(normal) / denom;
+        if !t.is_finite() || t < ray.t_min || t > ray.t_max.min(far) {
+            return None;
+        }
+        let p = ray.at(t) - self.center;
+        let uu = self.half_u.dot(self.half_u);
+        let uv = self.half_u.dot(self.half_v);
+        let vv = self.half_v.dot(self.half_v);
+        let det = uu * vv - uv * uv;
+        if det <= 1e-12 { return None; }
+        let pu = p.dot(self.half_u);
+        let pv = p.dot(self.half_v);
+        let x = (pu * vv - pv * uv) / det;
+        let y = (pv * uu - pu * uv) / det;
+        (x.abs() <= 1.0 && y.abs() <= 1.0).then_some(t)
+    }
+    fn pdf_solid_angle(self, _point: Vec3, direction: Vec3, distance: f32) -> f32 {
+        let cosine = self.normal().dot(-direction);
+        if cosine <= 0.0 { return 0.0; }
+        distance * distance / (self.area() * cosine)
+    }
 }
 
 pub struct Scene {
     pub bvh: Bvh,
     pub triangle_materials: Vec<usize>,
+    /// Per-triangle optional corner normals (aligned with input triangle indexing).
+    /// Equivalent in intent to Cycles triangle_smooth_normal barycentric interpolation.
+    pub corner_normals: Vec<Option<[Vec3; 3]>>,
     pub materials: Vec<Material>,
     pub light: RectLight,
     pub sky_strength: f32,
@@ -76,10 +114,34 @@ impl Scene {
             return Err("Invalid scene materials, triangle mapping or rectangle light");
         }
         Ok(Self {
-            bvh: Bvh::build(triangles), triangle_materials, materials,
+            bvh: Bvh::build(triangles),
+            corner_normals: vec![None; triangle_materials.len()],
+            triangle_materials, materials,
             light, sky_strength: 1.0,
         })
     }
+    /// Install optional corner normals, preserving geometric normals on flat faces.
+    pub fn set_corner_normals(&mut self, normals: Vec<Option<[Vec3;3]>>) -> Result<(), &'static str> {
+        if normals.len() != self.triangle_materials.len() ||
+            normals.iter().flatten().any(|ns| ns.iter().any(|n| !n.is_finite() || n.length_squared() <= 0.0)) {
+            return Err("invalid corner normals");
+        }
+        self.corner_normals = normals;
+        Ok(())
+    }
+
+    pub fn shading_normal(&self, triangle: usize, u: f32, v: f32) -> Vec3 {
+        let ng = self.bvh.triangle(triangle).expect("valid hit index").normal();
+        if let Some([a,b,c]) = self.corner_normals.get(triangle).and_then(|x| *x) {
+            let interpolated = a * (1.0 - u - v) + b * u + c * v;
+            if let Some(smooth) = interpolated.normalized() {
+                // Avoid a physically invalid shading normal below the geometric surface.
+                if smooth.dot(ng) > 0.0 { return smooth; }
+            }
+        }
+        ng
+    }
+
     fn material_for(&self, triangle: usize) -> Material {
         self.materials[self.triangle_materials[triangle]]
     }
@@ -201,7 +263,7 @@ fn bsdf_eval(material: Material, n: Vec3, view: Vec3, incoming: Vec3) -> (Vec3, 
     let pdf = (1.0-p_spec)*(ndl/PI)+p_spec*pdf_spec;
     (diffuse+specular, pdf)
 }
-fn bsdf_sample(material:Material,n:Vec3,view:Vec3,rng:&mut Rng)->Option<(Vec3,Vec3,f32)> {
+fn bsdf_sample(material:Material,n:Vec3,view:Vec3,rng:&mut Rng)->Option<(Vec3,Vec3,f32,f32)> {
     let incoming = if rng.next_f32() < glossy_probability(material.metallic.clamp(0.0,1.0)){
         let h=ggx_half_vector(n,material.roughness,rng);
         let vdh=view.dot(h);
@@ -214,7 +276,7 @@ fn bsdf_sample(material:Material,n:Vec3,view:Vec3,rng:&mut Rng)->Option<(Vec3,Ve
     if cos<=0.0 {return None;}
     let (f,pdf)=bsdf_eval(material,n,view,incoming);
     if pdf<=1e-12 || !pdf.is_finite() {return None;}
-    Some((incoming,f,cos/pdf))
+    Some((incoming,f,cos/pdf,pdf))
 }
 
 fn environment(direction: Vec3, sky_strength: f32) -> Vec3 {
@@ -223,7 +285,7 @@ fn environment(direction: Vec3, sky_strength: f32) -> Vec3 {
     let upper = Vec3::new(0.42,0.55,0.80);
     mix(lower,upper,t) * sky_strength
 }
-fn direct_light(scene:&Scene,point:Vec3,n:Vec3,view:Vec3,material:Material,rng:&mut Rng)->Vec3{
+fn direct_light(scene:&Scene,point:Vec3,n:Vec3,ng:Vec3,view:Vec3,material:Material,rng:&mut Rng)->Vec3{
     let light=scene.light;
     let target=light.sample(rng);
     let delta=target-point;
@@ -235,38 +297,83 @@ fn direct_light(scene:&Scene,point:Vec3,n:Vec3,view:Vec3,material:Material,rng:&
     let emit_cos=light.normal().dot(-direction);
     if ndl<=0.0 || emit_cos<=0.0{return Vec3::ZERO;}
     // Ray bounds terminate before the emitter to prevent false self-occlusion.
-    let Some(shadow)=Ray::new(point+n*0.0015,direction,0.0005,distance-0.003) else {
+    let Some(shadow)=Ray::new(point+ng*0.0015,direction,0.0005,distance-0.003) else {
         return Vec3::ZERO;
     };
     if scene.bvh.occluded(&shadow){return Vec3::ZERO;}
-    let (f,_pdf)=bsdf_eval(material,n,view,direction);
-    let geometry=(ndl*emit_cos*light.area()/distance2).max(0.0);
-    rgb_mul(f,light.radiance)*geometry
+    let (f,bsdf_pdf)=bsdf_eval(material,n,view,direction);
+    let light_pdf=light.pdf_solid_angle(point,direction,distance);
+    if light_pdf <= 0.0 { return Vec3::ZERO; }
+    let mis=power_heuristic(light_pdf,bsdf_pdf);
+    rgb_mul(f,light.radiance)*(ndl*mis/light_pdf)
+}
+
+/// Cosine-hemisphere next-event estimation of the sky, MIS weighted against
+/// BSDF sampling. Cycles uses importance sampling of the environment map;
+/// this is a conservative, basic precursor.
+fn direct_environment(scene:&Scene,point:Vec3,n:Vec3,ng:Vec3,
+                      view:Vec3,material:Material,rng:&mut Rng)->Vec3{
+    if scene.sky_strength<=0.0{return Vec3::ZERO;}
+    let direction=cosine_hemisphere(n,rng);
+    let cosine=n.dot(direction).max(0.0);
+    if cosine<=0.0{return Vec3::ZERO;}
+    let env_pdf=cosine/PI;
+    let Some(ray)=Ray::new(point+ng*0.0015,direction,0.0005,1000.0) else {
+        return Vec3::ZERO;
+    };
+    if scene.bvh.occluded(&ray) || scene.light.hit(&ray,ray.t_max).is_some(){
+        return Vec3::ZERO;
+    }
+    let (f,bsdf_pdf)=bsdf_eval(material,n,view,direction);
+    let mis=power_heuristic(env_pdf,bsdf_pdf);
+    rgb_mul(f,environment(direction,scene.sky_strength))*(cosine*mis/env_pdf)
 }
 fn trace(scene:&Scene,first:Ray,max_bounces:u32,rng:&mut Rng)->Vec3{
     let mut throughput=Vec3::new(1.0,1.0,1.0);
     let mut radiance=Vec3::ZERO;
     let mut ray=first;
-    for bounce in 0..max_bounces{
-        let Some(hit)=scene.bvh.closest_hit(&ray) else{
-            radiance=radiance+rgb_mul(throughput,environment(ray.direction,scene.sky_strength));
+    let mut previous_bsdf_pdf=0.0f32;
+    let mut previous_normal=Vec3::ZERO;
+    for bounce in 0..max_bounces {
+        let mesh_hit=scene.bvh.closest_hit(&ray);
+        let mesh_distance=mesh_hit.as_ref().map(|h|h.t).unwrap_or(ray.t_max);
+        // A sampled BSDF ray can see and reflect the rectangular emitter.
+        // MIS must pair this strategy with the direct light sample.
+        if let Some(t)=scene.light.hit(&ray,mesh_distance) {
+            let light_pdf=scene.light.pdf_solid_angle(ray.origin,ray.direction,t);
+            let weight=if bounce==0{1.0}else{power_heuristic(previous_bsdf_pdf,light_pdf)};
+            radiance=radiance+rgb_mul(throughput,scene.light.radiance)*weight;
+            break;
+        }
+        let Some(hit)=mesh_hit else {
+            let env_pdf=previous_normal.dot(ray.direction).max(0.0)/PI;
+            let weight=if bounce==0{1.0}else{power_heuristic(previous_bsdf_pdf,env_pdf)};
+            radiance=radiance+rgb_mul(throughput,environment(ray.direction,scene.sky_strength))*weight;
             break;
         };
         let material=scene.material_for(hit.triangle_index);
-        let mut normal=scene.bvh.triangle(hit.triangle_index).expect("valid triangle id").normal();
-        if normal.dot(ray.direction)>0.0{normal = -normal;}
+        let mut geometric=scene.bvh.triangle(hit.triangle_index).expect("valid triangle id").normal();
+        let mut normal=scene.shading_normal(hit.triangle_index,hit.u,hit.v);
+        if geometric.dot(ray.direction)>0.0 {
+            geometric = -geometric;
+            normal = -normal;
+        }
         let view=-ray.direction;
         let point=hit.point(&ray);
-        radiance=radiance+rgb_mul(throughput,direct_light(scene,point,normal,view,material,rng));
-        let Some((next,f,weight))=bsdf_sample(material,normal,view,rng) else {break;};
+        let direct=direct_light(scene,point,normal,geometric,view,material,rng)
+            +direct_environment(scene,point,normal,geometric,view,material,rng);
+        radiance=radiance+rgb_mul(throughput,direct);
+        let Some((next,f,weight,bsdf_pdf))=bsdf_sample(material,normal,view,rng) else {break;};
         throughput=rgb_mul(throughput,f)*weight;
-        if !throughput.is_finite() || max_color(throughput)<=0.0{break;}
-        if bounce>=2{
+        if !throughput.is_finite() || max_color(throughput)<=0.0 {break;}
+        if bounce>=2 {
             let survival=max_color(throughput).clamp(0.10,0.95);
             if rng.next_f32()>=survival{break;}
             throughput=throughput/survival;
         }
-        let Some(next_ray)=Ray::new(point+normal*0.0015,next,0.0005,1000.0) else{break;};
+        previous_bsdf_pdf=bsdf_pdf;
+        previous_normal=normal;
+        let Some(next_ray)=Ray::new(point+geometric*0.0015,next,0.0005,1000.0) else {break;};
         ray=next_ray;
     }
     radiance
@@ -288,6 +395,17 @@ impl Camera{
         let right=forward.cross(Vec3::new(0.0,0.0,1.0)).normalized().expect("camera right");
         let up=right.cross(forward);
         Self{origin,forward,right,up,tangent:(40.0f32.to_radians()*0.5).tan()}
+    }
+    /// Deterministic pixel center for G-buffer/denoising guide data.
+    fn center_ray(self,x:u32,y:u32,options:RenderSettings)->Ray{
+        let dx=(x as f32+0.5)/options.width as f32;
+        let dy=(y as f32+0.5)/options.height as f32;
+        let aspect=options.width as f32/options.height as f32;
+        let px=(2.0*dx-1.0)*aspect*self.tangent;
+        let py=(1.0-2.0*dy)*self.tangent;
+        let direction=(self.forward+self.right*px+self.up*py)
+            .normalized().expect("center ray direction");
+        Ray::new(self.origin,direction,0.001,1000.0).expect("center ray")
     }
     fn ray(self,x:u32,y:u32,options:RenderSettings,rng:&mut Rng)->Ray{
         let dx=(x as f32+rng.next_f32())/options.width as f32;
@@ -357,4 +475,47 @@ pub fn sample_pixel(scene:&Scene,settings:RenderSettings,x:u32,y:u32)->Result<Ve
         sum=sum+trace(scene,ray,s.max_bounces,&mut rng);
     }
     Ok(sum/s.samples as f32)
+}
+
+
+/// Generate first-hit guide buffers independently of the Monte Carlo sampling
+/// to preserve object boundaries during optional denoising.
+pub fn pixel_guides(
+    scene: &Scene, settings: RenderSettings
+) -> Result<Vec<crate::film::denoise::PixelGuide>, &'static str> {
+    use crate::film::denoise::PixelGuide;
+    let options = settings.validate()?;
+    let camera = Camera::studio();
+    let mut guides = Vec::with_capacity(options.width as usize * options.height as usize);
+    for y in 0..options.height {
+        for x in 0..options.width {
+            let ray = camera.center_ray(x,y,options);
+            let mesh_hit=scene.bvh.closest_hit(&ray);
+            let mesh_distance=mesh_hit.as_ref().map(|h|h.t).unwrap_or(ray.t_max);
+            if let Some(light_t)=scene.light.hit(&ray,mesh_distance){
+                guides.push(PixelGuide{
+                    normal:scene.light.normal(),depth:light_t,surface:Some(usize::MAX)
+                });
+            }else if let Some(hit)=mesh_hit {
+                let mut normal=scene.shading_normal(hit.triangle_index,hit.u,hit.v);
+                if normal.dot(ray.direction)>0.0{normal = -normal;}
+                guides.push(PixelGuide {
+                    normal,depth:hit.t,surface:Some(scene.triangle_materials[hit.triangle_index])
+                });
+            }else {
+                guides.push(PixelGuide::SKY);
+            }
+        }
+    }
+    Ok(guides)
+}
+
+/// Render pixels then optionally apply a geometry-aware a-trous postfilter.
+pub fn render_rgb_denoised(
+    scene:&Scene, settings:RenderSettings, strength:u8
+) -> Result<Vec<u8>, &'static str> {
+    let rgb=render_rgb(scene,settings)?;
+    if strength==0{return Ok(rgb);}
+    let guides=pixel_guides(scene,settings)?;
+    crate::film::denoise::denoise_rgb(&rgb,settings.width,settings.height,&guides,strength)
 }

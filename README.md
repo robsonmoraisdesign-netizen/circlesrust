@@ -2,6 +2,21 @@
 
 **Motor original usado como referência:** [clonecircles](https://github.com/robsonmoraisdesign-netizen/clonecircles), branch `main`, commit `3eb35f85996baa6c1b2e19bf297b22745c85e321`. O repositório original é C/C++. Aqui a conversão é incremental: **ainda não existe um port completo do Cycles**.
 
+## Nova fase: qualidade, normais suaves, MIS e importação OBJ
+
+O renderizador Rust CPU agora inclui interpolação de normais por vértice, interseção de raios com a luz retangular, MIS aproximado entre iluminação direta/BSDF/ambiente, pós-filtro guiado por normais e profundidade, e importação de geometria OBJ estática.
+
+Use:
+
+~~~powershell
+.\circlesrust-preview.exe Render.png 1920 1080 128 --denoise 3
+.\circlesrust-preview.exe MeuModelo.png 1280 720 128 --obj modelo.obj --denoise 3
+~~~
+
+O pacote Windows de testes contém a imagem Full HD e a comparação **com versus sem denoise**. Consulte [detalhes técnicos e limitações da fase](docs/QUALIDADE_MIS_DENOISE_OBJ.md).
+
+**O código atual ainda funciona em CPU.** Não há GPU Rust, OIDN/OptiX, shader graph, MTL/UV ou importação completa do Cycles.
+
 ## Imagens para avaliação em resolução adequada
 
 **O GitHub Actions agora inclui uma imagem Full HD 1920 × 1080, com 64 amostras por pixel**, no artefato Windows, além de imagens pequenas para testes automáticos. O script Windows gera 1920 × 1080 em 128 amostras. Os testes PNG/BMP pequenos não devem ser usados para avaliar a qualidade da renderização.
