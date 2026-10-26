@@ -99,7 +99,7 @@ pub fn obj_studio_scene(mut mesh:obj::ObjMesh)->Scene{
     let mut geometry=MeshBuilder::new();
     geometry.quad(v(-8.0,-8.0,-0.02),v(8.0,-8.0,-0.02),
         v(8.0,8.0,-0.02),v(-8.0,8.0,-0.02),0);
-    for (tri,normals) in mesh.triangles.into_iter().zip(mesh.corner_normals.into_iter()){
+    for (tri,normals) in mesh.triangles.into_iter().zip(mesh.corner_normals){
         geometry.tris.push(tri);
         geometry.materials.push(1);
         geometry.normals.push(normals);
