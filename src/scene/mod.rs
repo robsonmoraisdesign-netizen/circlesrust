@@ -8,12 +8,19 @@ use crate::kernel::geometry::Triangle;
 use crate::util::math::Vec3;
 
 fn v(x:f32,y:f32,z:f32)->Vec3 {Vec3::new(x,y,z)}
-struct MeshBuilder {tris:Vec<Triangle>, materials:Vec<usize>}
+struct MeshBuilder {tris:Vec<Triangle>, materials:Vec<usize>, normals:Vec<Option<[Vec3;3]>>}
 impl MeshBuilder {
-    fn new()->Self {Self{tris:Vec::new(),materials:Vec::new()}}
+    fn new()->Self {Self{tris:Vec::new(),materials:Vec::new(),normals:Vec::new()}}
     fn triangle(&mut self,a:Vec3,b:Vec3,c:Vec3,material:usize){
         if let Some(t)=Triangle::new(a,b,c) {
-            self.tris.push(t);self.materials.push(material);
+            self.tris.push(t);self.materials.push(material);self.normals.push(None);
+        }
+    }
+    fn smooth_triangle(&mut self, vertices:[Vec3;3], corner_normals:[Vec3;3], material:usize) {
+        if let Some(triangle) = Triangle::new(vertices[0],vertices[1],vertices[2]) {
+            self.tris.push(triangle);
+            self.materials.push(material);
+            self.normals.push(Some(corner_normals));
         }
     }
     fn quad(&mut self,a:Vec3,b:Vec3,c:Vec3,d:Vec3,material:usize){
@@ -48,8 +55,8 @@ impl MeshBuilder {
                 let b=point(j+1,i);
                 let c=point(j+1,i+1);
                 let d=point(j,i+1);
-                self.triangle(a,b,c,material);
-                self.triangle(a,c,d,material);
+                self.smooth_triangle([a,b,c],[(a-center)/radius,(b-center)/radius,(c-center)/radius],material);
+                self.smooth_triangle([a,c,d],[(a-center)/radius,(c-center)/radius,(d-center)/radius],material);
             }
         }
     }
@@ -77,6 +84,8 @@ pub fn studio_scene()->Scene {
         half_v:v(0.0,-1.25,0.0),
         radiance:v(9.0,8.2,7.4),
     };
-    Scene::new(mesh.tris,mesh.materials,materials,light)
-        .expect("studio scene mesh must be valid")
+    let mut scene = Scene::new(mesh.tris,mesh.materials,materials,light)
+        .expect("studio scene mesh must be valid");
+    scene.set_corner_normals(mesh.normals).expect("valid generated normals");
+    scene
 }

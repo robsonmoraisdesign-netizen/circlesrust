@@ -26,17 +26,13 @@ jobs:
         run: cargo run --release --bin circlesrust-preview -- preview.png 128 80 8
       - name: Smoke test backward-compatible BMP export
         run: cargo run --release --bin circlesrust-preview -- preview.bmp 48 32 2
-      - name: Render Full HD evaluation image (Windows)
-        if: runner.os == 'Windows'
-        run: cargo run --release --bin circlesrust-preview -- avaliacao_fullhd_1920x1080_64spp.png 1920 1080 64
-      - name: Publish Windows executable, scripts and Full HD preview
+      - name: Publish Windows executable and preview images
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: circlesrust-pathtracer-windows
           path: |
             target/release/circlesrust-preview.exe
-            avaliacao_fullhd_1920x1080_64spp.png
             preview.png
             preview.bmp
             RENDER_QUALIDADE_WINDOWS.bat

@@ -57,6 +57,9 @@ impl RectLight {
 pub struct Scene {
     pub bvh: Bvh,
     pub triangle_materials: Vec<usize>,
+    /// Per-triangle optional corner normals (aligned with input triangle indexing).
+    /// Equivalent in intent to Cycles triangle_smooth_normal barycentric interpolation.
+    pub corner_normals: Vec<Option<[Vec3; 3]>>,
     pub materials: Vec<Material>,
     pub light: RectLight,
     pub sky_strength: f32,
@@ -76,10 +79,34 @@ impl Scene {
             return Err("Invalid scene materials, triangle mapping or rectangle light");
         }
         Ok(Self {
-            bvh: Bvh::build(triangles), triangle_materials, materials,
+            bvh: Bvh::build(triangles),
+            corner_normals: vec![None; triangle_materials.len()],
+            triangle_materials, materials,
             light, sky_strength: 1.0,
         })
     }
+    /// Install optional corner normals, preserving geometric normals on flat faces.
+    pub fn set_corner_normals(&mut self, normals: Vec<Option<[Vec3;3]>>) -> Result<(), &'static str> {
+        if normals.len() != self.triangle_materials.len() ||
+            normals.iter().flatten().any(|ns| ns.iter().any(|n| !n.is_finite() || n.length_squared() <= 0.0)) {
+            return Err("invalid corner normals");
+        }
+        self.corner_normals = normals;
+        Ok(())
+    }
+
+    pub fn shading_normal(&self, triangle: usize, u: f32, v: f32) -> Vec3 {
+        let ng = self.bvh.triangle(triangle).expect("valid hit index").normal();
+        if let Some([a,b,c]) = self.corner_normals.get(triangle).and_then(|x| *x) {
+            let interpolated = a * (1.0 - u - v) + b * u + c * v;
+            if let Some(smooth) = interpolated.normalized() {
+                // Avoid a physically invalid shading normal below the geometric surface.
+                if smooth.dot(ng) > 0.0 { return smooth; }
+            }
+        }
+        ng
+    }
+
     fn material_for(&self, triangle: usize) -> Material {
         self.materials[self.triangle_materials[triangle]]
     }
@@ -223,7 +250,7 @@ fn environment(direction: Vec3, sky_strength: f32) -> Vec3 {
     let upper = Vec3::new(0.42,0.55,0.80);
     mix(lower,upper,t) * sky_strength
 }
-fn direct_light(scene:&Scene,point:Vec3,n:Vec3,view:Vec3,material:Material,rng:&mut Rng)->Vec3{
+fn direct_light(scene:&Scene,point:Vec3,n:Vec3,ng:Vec3,view:Vec3,material:Material,rng:&mut Rng)->Vec3{
     let light=scene.light;
     let target=light.sample(rng);
     let delta=target-point;
@@ -235,7 +262,7 @@ fn direct_light(scene:&Scene,point:Vec3,n:Vec3,view:Vec3,material:Material,rng:&
     let emit_cos=light.normal().dot(-direction);
     if ndl<=0.0 || emit_cos<=0.0{return Vec3::ZERO;}
     // Ray bounds terminate before the emitter to prevent false self-occlusion.
-    let Some(shadow)=Ray::new(point+n*0.0015,direction,0.0005,distance-0.003) else {
+    let Some(shadow)=Ray::new(point+ng*0.0015,direction,0.0005,distance-0.003) else {
         return Vec3::ZERO;
     };
     if scene.bvh.occluded(&shadow){return Vec3::ZERO;}
@@ -253,11 +280,15 @@ fn trace(scene:&Scene,first:Ray,max_bounces:u32,rng:&mut Rng)->Vec3{
             break;
         };
         let material=scene.material_for(hit.triangle_index);
-        let mut normal=scene.bvh.triangle(hit.triangle_index).expect("valid triangle id").normal();
-        if normal.dot(ray.direction)>0.0{normal = -normal;}
+        let mut geometric = scene.bvh.triangle(hit.triangle_index).expect("valid triangle id").normal();
+        let mut normal = scene.shading_normal(hit.triangle_index, hit.u, hit.v);
+        if geometric.dot(ray.direction) > 0.0 {
+            geometric = -geometric;
+            normal = -normal;
+        }
         let view=-ray.direction;
         let point=hit.point(&ray);
-        radiance=radiance+rgb_mul(throughput,direct_light(scene,point,normal,view,material,rng));
+        radiance=radiance+rgb_mul(throughput,direct_light(scene,point,normal,geometric,view,material,rng));
         let Some((next,f,weight))=bsdf_sample(material,normal,view,rng) else {break;};
         throughput=rgb_mul(throughput,f)*weight;
         if !throughput.is_finite() || max_color(throughput)<=0.0{break;}
@@ -266,7 +297,7 @@ fn trace(scene:&Scene,first:Ray,max_bounces:u32,rng:&mut Rng)->Vec3{
             if rng.next_f32()>=survival{break;}
             throughput=throughput/survival;
         }
-        let Some(next_ray)=Ray::new(point+normal*0.0015,next,0.0005,1000.0) else{break;};
+        let Some(next_ray)=Ray::new(point+geometric*0.0015,next,0.0005,1000.0) else{break;};
         ray=next_ray;
     }
     radiance

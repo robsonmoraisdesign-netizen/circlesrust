@@ -2,12 +2,6 @@
 
 **Motor original usado como referência:** [clonecircles](https://github.com/robsonmoraisdesign-netizen/clonecircles), branch `main`, commit `3eb35f85996baa6c1b2e19bf297b22745c85e321`. O repositório original é C/C++. Aqui a conversão é incremental: **ainda não existe um port completo do Cycles**.
 
-## Imagens para avaliação em resolução adequada
-
-**O GitHub Actions agora inclui uma imagem Full HD 1920 × 1080, com 64 amostras por pixel**, no artefato Windows, além de imagens pequenas para testes automáticos. O script Windows gera 1920 × 1080 em 128 amostras. Os testes PNG/BMP pequenos não devem ser usados para avaliar a qualidade da renderização.
-
-Consulte [orientações para resolução, samples, CPU/GPU e avaliação visual](docs/AVALIAR_QUALIDADE_FULLHD.md).
-
 ## Novo: renderização CPU com múltiplas amostras
 
 O antigo executável BMP tinha uma amostra por pixel, uma luz direcional e sombreado simples. A nova versão executa um integrador de caminhos em Rust com:
