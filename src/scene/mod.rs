@@ -1,8 +1,8 @@
-pub mod obj;
 // SPDX-FileCopyrightText: 2011-2022 Blender Foundation
 // SPDX-License-Identifier: Apache-2.0
-//! Procedural test scene to validate the Rust path integrator.
-//! The Cycles scene/object/mesh node graph has not been ported yet.
+// Procedural test scene to validate the Rust path integrator.
+// The Cycles scene/object/mesh node graph has not been ported yet.
+pub mod obj;
 
 use crate::integrator::{Material, RectLight, Scene};
 use crate::kernel::geometry::Triangle;
