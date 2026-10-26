@@ -1,0 +1,967 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RV Studio Render | Layout Corrigido</title>
+  <meta name="description" content="Base visual HTML do RV Studio Render. Layout aprovado, temas centralizados, controles demonstrativos.">
+  <style>
+/* RV STUDIO DESIGN SYSTEM — ÚNICA FONTE DE VALORES DE APARÊNCIA
+ * Ajuste aqui cores, raio, espessuras, fontes, opacidade, sombras e dimensões.
+ * Arquivos de layout/componentes SOMENTE usam var(--rv-...).
+ */
+:root {
+  color-scheme: light;
+  /* Foundation / Tipografia */
+  --rv-font: 'Segoe UI', Inter, system-ui, -apple-system, sans-serif;
+  --rv-font-size-xs: 10px;
+  --rv-font-size-sm: 11px;
+  --rv-font-size-md: 12px;
+  --rv-font-size-lg: 13px;
+  --rv-font-size-title: 15px;
+  --rv-font-weight-normal: 400;
+  --rv-font-weight-medium: 500;
+  --rv-font-weight-semibold: 600;
+  --rv-font-weight-bold: 700;
+  --rv-letter-label: .075em;
+  --rv-letter-brand: -.045em;
+  --rv-line-height: 1.45;
+  /* Foundation / Ritmo e dimensões */
+  --rv-unit: 4px;
+  --rv-space-1: 4px;
+  --rv-space-2: 6px;
+  --rv-space-3: 8px;
+  --rv-space-4: 10px;
+  --rv-space-5: 12px;
+  --rv-space-6: 14px;
+  --rv-space-7: 16px;
+  --rv-space-8: 20px;
+  --rv-space-9: 24px;
+  --rv-space-10: 28px;
+  --rv-space-11: 32px;
+  --rv-topbar-height: 68px;
+  --rv-statusbar-height: 34px;
+  --rv-left-width: 258px;
+  --rv-right-width: 305px;
+  --rv-camera-height: 170px;
+  --rv-panel-header-height: 48px;
+  --rv-control-height: 31px;
+  --rv-nav-height: 35px;
+  --rv-icon-size: 16px;
+  --rv-icon-size-sm: 14px;
+  --rv-icon-size-lg: 19px;
+  --rv-min-app-width: 1020px;
+  --rv-panel-min: 0;
+  --rv-range-track-height: 5px;
+  --rv-range-thumb-size: 13px;
+  --rv-sphere-size: 153px;
+  /* Foundation / Geometria */
+  --rv-radius-xs: 5px;
+  --rv-radius-sm: 7px;
+  --rv-radius-md: 9px;
+  --rv-radius-lg: 12px;
+  --rv-radius-xl: 16px;
+  --rv-radius-pill: 100px;
+  --rv-border-thin: 1px;
+  --rv-border-focus: 2px;
+  --rv-grid-gap: 10px;
+  --rv-panel-padding: 16px;
+  /* Paleta semântica: aplicativo */
+  --rv-app-bg: #e9edf3;
+  --rv-topbar-bg: #fdfefe;
+  --rv-panel-bg: #ffffff;
+  --rv-panel-secondary: #f5f7fa;
+  --rv-control-bg: #f7f9fb;
+  --rv-control-hover: #edf2f7;
+  --rv-control-active: #e1ecf9;
+  --rv-input-bg: #ffffff;
+  --rv-overlay-bg: #ffffff;
+  --rv-overlay-backdrop: #15203275;
+  --rv-separator: #e9edf2;
+  --rv-outline: #dce4ec;
+  --rv-outline-strong: #cbd4de;
+  --rv-text-primary: #263340;
+  --rv-text-secondary: #708192;
+  --rv-text-muted: #94a2af;
+  --rv-icon-color: #728395;
+  --rv-accent: #407dc6;
+  --rv-accent-hover: #2c6daf;
+  --rv-accent-foreground: #ffffff;
+  --rv-accent-wash: #e9f2fd;
+  --rv-positive: #34a77c;
+  --rv-warning: #d69339;
+  --rv-negative: #db6662;
+  --rv-brand-ink: #172f49;
+  --rv-brand-subtitle: #63819f;
+  --rv-panel-shadow: 0 2px 14px #172d4810;
+  --rv-dialog-shadow: 0 24px 70px #0c1d3740;
+  --rv-tooltip-shadow: 0 8px 28px #10233930;
+  /* Viewport é um espaço de trabalho separado do tema da UI */
+  --rv-viewport-bg-top: #273448;
+  --rv-viewport-bg-bottom: #111b2b;
+  --rv-viewport-grid: #67849a24;
+  --rv-viewport-grid-strong: #7998ae52;
+  --rv-viewport-text: #b6c6d6;
+  --rv-viewport-text-strong: #f5f8fc;
+  --rv-viewport-overlay: #182435c9;
+  --rv-viewport-overlay-border: #64788d45;
+  --rv-viewport-accent: #8abdf2;
+  --rv-viewport-accent-strong: #4a99f0;
+  --rv-viewport-shadow: #070e19ab;
+  --rv-viewport-floor: #203146;
+  --rv-axis-x: #dc6868;
+  --rv-axis-y: #63be91;
+  --rv-axis-z: #66a4e2;
+  --rv-viewport-highlight: #f7bc65;
+  /* Visual dos materiais (amostra, não aparência do painel) */
+  --rv-preview-bg: #e6e9ef;
+  --rv-preview-stage: #cad3df;
+  --rv-preview-ink: #586b7b;
+  --rv-preview-light: #f9fafb;
+  --rv-color-checker-a: #f3f4f6;
+  --rv-color-checker-b: #e6e8eb;
+}
+body[data-theme="dark"] {
+  color-scheme: dark;
+  --rv-app-bg: #111821;
+  --rv-topbar-bg: #17202b;
+  --rv-panel-bg: #1c2733;
+  --rv-panel-secondary: #202d3b;
+  --rv-control-bg: #263443;
+  --rv-control-hover: #304253;
+  --rv-control-active: #284563;
+  --rv-input-bg: #1d2a37;
+  --rv-overlay-bg: #202d3b;
+  --rv-overlay-backdrop: #05080db0;
+  --rv-separator: #2a3948;
+  --rv-outline: #354656;
+  --rv-outline-strong: #4a5d71;
+  --rv-text-primary: #ebf1f6;
+  --rv-text-secondary: #a4b3c0;
+  --rv-text-muted: #8194a6;
+  --rv-icon-color: #a5b5c5;
+  --rv-accent: #69a8ee;
+  --rv-accent-hover: #86bbf4;
+  --rv-accent-foreground: #11253e;
+  --rv-accent-wash: #273e56;
+  --rv-positive: #56c795;
+  --rv-warning: #efb26d;
+  --rv-negative: #ef8b88;
+  --rv-brand-ink: #e4f1ff;
+  --rv-brand-subtitle: #95b4d0;
+  --rv-panel-shadow: 0 2px 14px #050b1280;
+  --rv-dialog-shadow: 0 24px 70px #03070bc7;
+  --rv-tooltip-shadow: 0 8px 28px #030910ad;
+  --rv-viewport-bg-top: #202c3d;
+  --rv-viewport-bg-bottom: #101723;
+  --rv-viewport-grid: #67849a20;
+  --rv-viewport-grid-strong: #7998ae45;
+  --rv-viewport-overlay: #121b2bdc;
+  --rv-preview-bg: #263544;
+  --rv-preview-stage: #1a2936;
+  --rv-preview-ink: #becbd5;
+  --rv-preview-light: #8198ad;
+  --rv-color-checker-a: #253440;
+  --rv-color-checker-b: #1e2c37;
+}
+
+</style>
+  <style>
+/* RV Studio — Composição: TODA APARÊNCIA usa tokens de design-system.css. */
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;font-family:var(--rv-font);font-size:var(--rv-font-size-md);line-height:var(--rv-line-height)}
+body{color:var(--rv-text-primary);background:var(--rv-app-bg)}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+button:disabled{cursor:not-allowed;opacity:.55}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:var(--rv-border-focus) solid var(--rv-accent);outline-offset:2px}
+button svg,.panel-title svg,.outliner-search svg,.brand-mark svg,.view-buttons svg,.object-row svg,.scene-heading svg,.window-tools svg{width:var(--rv-icon-size);height:var(--rv-icon-size);fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.icon-defs{position:absolute;width:0;height:0;overflow:hidden}
+[hidden]{display:none!important}
+.app-shell{height:100dvh;min-width:var(--rv-min-app-width);display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:var(--rv-topbar-height);flex:0 0 var(--rv-topbar-height);display:flex;align-items:center;gap:var(--rv-space-7);padding:0 var(--rv-space-7);background:var(--rv-topbar-bg);border-bottom:var(--rv-border-thin) solid var(--rv-outline);box-shadow:var(--rv-panel-shadow);z-index:3}
+.brand{display:flex;align-items:center;gap:var(--rv-space-3);white-space:nowrap;min-width:175px}
+.brand-mark{height:35px;width:35px;border-radius:var(--rv-radius-md);display:grid;place-items:center;color:var(--rv-accent-foreground);background:var(--rv-accent)}
+.brand-mark svg{width:var(--rv-icon-size-lg);height:var(--rv-icon-size-lg)}
+.brand-copy{display:flex;flex-direction:column;line-height:1.05;gap:3px;letter-spacing:var(--rv-letter-brand);font-size:var(--rv-font-size-title);color:var(--rv-brand-ink)}
+.brand-copy strong{font-weight:var(--rv-font-weight-bold)}
+.brand-copy strong span{font-weight:var(--rv-font-weight-medium)}
+.brand-copy small{font-size:var(--rv-font-size-xs);font-weight:var(--rv-font-weight-medium);letter-spacing:var(--rv-letter-label);color:var(--rv-brand-subtitle)}
+.version-tag{background:var(--rv-panel-secondary);color:var(--rv-text-muted);font-weight:var(--rv-font-weight-bold);font-size:var(--rv-font-size-xs);border-radius:var(--rv-radius-xs);padding:3px 5px}
+.main-menu{display:flex;align-items:center;gap:var(--rv-space-2);flex:1;min-width:0}
+.menu-btn,.render-btn{height:var(--rv-nav-height);border:var(--rv-border-thin) solid transparent;border-radius:var(--rv-radius-sm);padding:0 var(--rv-space-4);display:inline-flex;align-items:center;gap:var(--rv-space-2);font-size:var(--rv-font-size-sm);font-weight:var(--rv-font-weight-semibold);white-space:nowrap;letter-spacing:var(--rv-letter-label);background:transparent;transition:background .14s}
+.menu-btn:hover,.menu-btn.menu-open{background:var(--rv-control-hover)}
+.menu-btn svg{width:12px;height:12px;fill:none;stroke:var(--rv-text-muted);stroke-width:1.8}
+.render-btn{background:var(--rv-accent);color:var(--rv-accent-foreground);padding:0 var(--rv-space-7);box-shadow:var(--rv-panel-shadow);border-color:var(--rv-accent)}
+.render-btn:hover,.action-primary:hover{background:var(--rv-accent-hover)}
+.render-btn svg{width:var(--rv-icon-size-sm);height:var(--rv-icon-size-sm);fill:none;stroke:currentColor;stroke-width:1.6}
+.engine-control{display:flex;align-items:center;gap:var(--rv-space-3);margin-left:var(--rv-space-3);font-size:var(--rv-font-size-xs);font-weight:var(--rv-font-weight-bold);letter-spacing:var(--rv-letter-label);color:var(--rv-text-muted)}
+.engine-control select{background:var(--rv-control-bg);border:var(--rv-border-thin) solid var(--rv-outline);height:var(--rv-nav-height);padding:0 var(--rv-space-3);border-radius:var(--rv-radius-sm);font-weight:var(--rv-font-weight-semibold);font-size:var(--rv-font-size-sm);min-width:98px;outline-offset:0}
+.window-tools{display:flex;align-items:center;gap:var(--rv-space-2)}
+.splitter{width:var(--rv-border-thin);height:var(--rv-space-8);background:var(--rv-outline);margin-right:var(--rv-space-4)}
+.icon-button,.ghost-icon{display:inline-flex;align-items:center;justify-content:center;border:var(--rv-border-thin) solid var(--rv-outline);background:var(--rv-control-bg);border-radius:var(--rv-radius-sm);width:var(--rv-control-height);height:var(--rv-control-height);color:var(--rv-icon-color);flex-shrink:0}
+.icon-button:hover,.ghost-icon:hover{background:var(--rv-control-hover);color:var(--rv-text-primary)}
+.ghost-icon{border-color:transparent;background:transparent;width:28px;height:28px}
+.workspace{display:grid;grid-template-columns:var(--rv-left-width) minmax(0,1fr) var(--rv-right-width);gap:var(--rv-grid-gap);padding:var(--rv-grid-gap);flex:1;min-height:0}
+.left-stack{display:grid;grid-template-rows:minmax(280px,.99fr) minmax(190px,.72fr);gap:var(--rv-grid-gap);min-height:0}
+.center-stack{display:grid;grid-template-rows:minmax(0,1fr) var(--rv-camera-height);gap:var(--rv-grid-gap);min-height:0;min-width:0}
+.panel{background:var(--rv-panel-bg);border:var(--rv-border-thin) solid var(--rv-outline);border-radius:var(--rv-radius-lg);box-shadow:var(--rv-panel-shadow);min-height:0;min-width:0;overflow:hidden}
+.panel-header{height:var(--rv-panel-header-height);padding:0 var(--rv-panel-padding);display:flex;align-items:center;justify-content:space-between;border-bottom:var(--rv-border-thin) solid var(--rv-separator);gap:var(--rv-space-2)}
+.panel-title{font-size:var(--rv-font-size-sm);font-weight:var(--rv-font-weight-bold);letter-spacing:var(--rv-letter-label);display:flex;align-items:center;gap:var(--rv-space-4);white-space:nowrap}
+.panel-title svg{color:var(--rv-accent)}
+.counter{background:var(--rv-panel-secondary);border:var(--rv-border-thin) solid var(--rv-outline);border-radius:var(--rv-radius-xs);padding:2px 7px;font-size:var(--rv-font-size-xs);color:var(--rv-text-muted);font-weight:var(--rv-font-weight-semibold)}
+.panel-scroll,.materials-scroll{overflow-y:auto;height:calc(100% - var(--rv-panel-header-height));scrollbar-color:var(--rv-outline-strong) transparent;scrollbar-width:thin}
+.panel-scroll{padding:var(--rv-space-6) var(--rv-panel-padding)}
+.group-label{display:flex;justify-content:space-between;align-items:center;gap:var(--rv-space-2);font-size:var(--rv-font-size-xs);font-weight:var(--rv-font-weight-bold);letter-spacing:var(--rv-letter-label);color:var(--rv-text-muted);margin-bottom:var(--rv-space-5)}
+.group-label>span:last-child:not(:first-child){font-weight:var(--rv-font-weight-medium);letter-spacing:normal;text-transform:none}
+.property{display:flex;flex-direction:column;gap:var(--rv-space-3);margin-bottom:var(--rv-space-7)}
+.property label{font-size:var(--rv-font-size-sm);color:var(--rv-text-secondary);font-weight:var(--rv-font-weight-medium)}
+.slider-line{display:flex;align-items:center;gap:var(--rv-space-4)}
+.slider-line input[type=range]{min-width:0;width:100%;flex:1}
+.slider-line output{width:42px;text-align:right;font-size:var(--rv-font-size-sm);font-variant-numeric:tabular-nums;color:var(--rv-text-primary);font-weight:var(--rv-font-weight-semibold)}
+input[type=range]{-webkit-appearance:none;appearance:none;height:var(--rv-range-track-height);border-radius:var(--rv-radius-pill);background:var(--rv-outline-strong);outline:none;cursor:ew-resize}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:var(--rv-range-thumb-size);height:var(--rv-range-thumb-size);border:var(--rv-border-focus) solid var(--rv-panel-bg);border-radius:var(--rv-radius-pill);background:var(--rv-accent);box-shadow:0 0 0 var(--rv-border-thin) var(--rv-accent)}
+input[type=range]::-moz-range-thumb{width:var(--rv-range-thumb-size);height:var(--rv-range-thumb-size);border:var(--rv-border-focus) solid var(--rv-panel-bg);border-radius:var(--rv-radius-pill);background:var(--rv-accent)}
+input[type=checkbox]{width:15px;height:15px;accent-color:var(--rv-accent)}
+input[type=color]{width:37px;height:27px;padding:3px;background:var(--rv-input-bg);border:var(--rv-border-thin) solid var(--rv-outline);border-radius:var(--rv-radius-xs);cursor:pointer}
+.property-inline{flex-direction:row;justify-content:space-between;align-items:center;gap:var(--rv-space-4);margin-bottom:var(--rv-space-7)}
+.section-divider{height:var(--rv-border-thin);width:100%;background:var(--rv-separator);margin:var(--rv-space-5) 0 var(--rv-space-8)}
+.presets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--rv-space-2)}
+.preset{min-width:0;border:var(--rv-border-thin) solid var(--rv-outline);background:var(--rv-control-bg);border-radius:var(--rv-radius-sm);height:var(--rv-control-height);font-size:var(--rv-font-size-xs);font-weight:var(--rv-font-weight-semibold)}
+.preset.selected{background:var(--rv-accent-wash);border-color:var(--rv-accent);color:var(--rv-accent)}
+.outliner-panel{display:flex;flex-direction:column}
+.outliner-search{display:flex;align-items:center;gap:var(--rv-space-3);margin:var(--rv-space-5) var(--rv-panel-padding) var(--rv-space-3);padding:0 var(--rv-space-3);background:var(--rv-input-bg);border:var(--rv-border-thin) solid var(--rv-outline);border-radius:var(--rv-radius-sm);height:var(--rv-control-height);color:var(--rv-text-muted)}
+.outliner-search svg{width:14px;height:14px}
+.outliner-search input{background:transparent;border:0;outline:0;min-width:0;width:100%;font-size:var(--rv-font-size-sm);color:var(--rv-text-primary)}
+.outliner-search input::placeholder{color:var(--rv-text-muted)}
+.scene-heading{margin:0 var(--rv-panel-padding) var(--rv-space-3);display:flex;align-items:center;gap:var(--rv-space-3);font-weight:var(--rv-font-weight-semibold);font-size:var(--rv-font-size-sm);color:var(--rv-text-secondary)}
+.scene-heading svg{width:12px;height:12px}
+.scene-heading small{margin-left:auto;font-size:var(--rv-font-size-xs);color:var(--rv-text-muted);font-weight:var(--rv-font-weight-normal)}
+.object-list{flex:1;min-height:0;overflow-y:auto;padding:0 var(--rv-space-4) var(--rv-space-4);scrollbar-width:thin;scrollbar-color:var(--rv-outline-strong) transparent}
+.object-row{height:34px;display:flex;align-items:center;gap:var(--rv-space-3);padding:0 var(--rv-space-2);border-radius:var(--rv-radius-sm);border:var(--rv-border-thin) solid transparent;font-size:var(--rv-font-size-sm);cursor:pointer;user-select:none;min-width:0}
+.object-row:hover{background:var(--rv-control-hover)}
+.object-row.selected{background:var(--rv-accent-wash);border-color:var(--rv-outline);color:var(--rv-accent)}
+.object-row>.object-icon{color:var(--rv-text-muted);width:var(--rv-icon-size-sm);height:var(--rv-icon-size-sm)}
+.object-row>.object-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.object-row>.visibility-btn{background:transparent;border:0;color:var(--rv-icon-color);width:26px;height:25px;display:grid;place-items:center;padding:0}
+.object-row>.visibility-btn svg{width:15px;height:15px}
+.object-row>.visibility-btn[aria-pressed="false"]{opacity:.5}
+.outliner-actions{border-top:var(--rv-border-thin) solid var(--rv-separator);display:flex;gap:var(--rv-space-2);padding:var(--rv-space-4) var(--rv-panel-padding)}
+.outliner-actions>button:first-child{flex:1;background:var(--rv-control-bg);border:var(--rv-border-thin) solid var(--rv-outline);border-radius:var(--rv-radius-sm);height:var(--rv-control-height);display:flex;justify-content:center;align-items:center;gap:var(--rv-space-2);font-weight:var(--rv-font-weight-semibold);font-size:var(--rv-font-size-sm)}
+.outliner-actions>button:first-child svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.9}
+.viewport-panel{position:relative;background:var(--rv-viewport-bg-bottom);border-color:var(--rv-outline-strong);overflow:hidden}
+#sceneCanvas{width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#sceneCanvas.dragging{cursor:grabbing}
+.viewport-top{position:absolute;top:var(--rv-space-5);left:var(--rv-space-6);right:var(--rv-space-6);display:flex;align-items:center;justify-content:space-between;pointer-events:none;z-index:1}
+.view-badges,.view-buttons{display:flex;gap:var(--rv-space-2);align-items:center;pointer-events:auto}
+.view-live,.view-pill{display:inline-flex;align-items:center;gap:var(--rv-space-2);background:var(--rv-viewport-overlay);border:var(--rv-border-thin) solid var(--rv-viewport-overlay-border);color:var(--rv-viewport-text);padding:0 var(--rv-space-4);height:28px;border-radius:var(--rv-radius-xs);font-size:var(--rv-font-size-xs);font-weight:var(--rv-font-weight-semibold);letter-spacing:var(--rv-letter-label)}
+.view-live{color:var(--rv-viewport-text-strong)}
+.live-dot,.status-dot{width:7px;height:7px;background:var(--rv-positive);border-radius:var(--rv-radius-pill);display:inline-block}
+.view-buttons .icon-button{color:var(--rv-viewport-text);background:var(--rv-viewport-overlay);border-color:var(--rv-viewport-overlay-border)}
+.view-buttons .icon-button:hover{color:var(--rv-viewport-text-strong)}
+.orientation-control{position:absolute;top:57px;right:var(--rv-space-7);display:grid;grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(2,1fr);width:112px;height:107px;gap:4px;z-index:1}
+.orientation-control button{border:var(--rv-border-thin) solid var(--rv-viewport-overlay-border);border-radius:var(--rv-radius-sm);background:var(--rv-viewport-overlay);color:var(--rv-viewport-text);font-size:var(--rv-font-size-xs);font-weight:var(--rv-font-weight-semibold)}
+.orientation-control button:hover{border-color:var(--rv-viewport-accent);color:var(--rv-viewport-text-strong)}
+.orientation-control button.active{background:var(--rv-viewport-accent-strong);color:var(--rv-accent-foreground)}
+.orientation-control .axis-lines{position:absolute;pointer-events:none;right:-5px;bottom:-15px;width:30px;height:30px;display:block}
+.axis-lines i{position:absolute;top:15px;left:14px;transform-origin:0 0;width:22px;height:2px;border-radius:var(--rv-radius-pill)}
+.axis-lines .axis-x{background:var(--rv-axis-x);transform:rotate(0deg)}
+.axis-lines .axis-y{background:var(--rv-axis-y);transform:rotate(-120deg)}
+.axis-lines .axis-z{background:var(--rv-axis-z);transform:rotate(-75deg)}
+.viewport-bottom{position:absolute;left:var(--rv-space-7);right:var(--rv-space-7);bottom:var(--rv-space-6);display:flex;align-items:end;justify-content:space-between;gap:var(--rv-space-4);pointer-events:none}
+.view-instructions,.viewport-shortcuts{display:flex;align-items:center;flex-wrap:wrap;gap:var(--rv-space-4);background:var(--rv-viewport-overlay);color:var(--rv-viewport-text);font-size:var(--rv-font-size-xs);padding:var(--rv-space-3) var(--rv-space-4);border:var(--rv-border-thin) solid var(--rv-viewport-overlay-border);border-radius:var(--rv-radius-sm)}
+.view-instructions strong{color:var(--rv-viewport-accent);font-weight:var(--rv-font-weight-semibold);letter-spacing:var(--rv-letter-label)}
+kbd{display:inline-flex;min-width:16px;height:18px;justify-content:center;align-items:center;border:var(--rv-border-thin) solid var(--rv-outline-strong);border-radius:var(--rv-radius-xs);padding:0 4px;font-size:var(--rv-font-size-xs);font-family:inherit;font-weight:var(--rv-font-weight-semibold)}
+.viewport-shortcuts kbd{border-color:var(--rv-viewport-overlay-border);color:var(--rv-viewport-text-strong)}
+.transform-hint{position:absolute;top:56px;left:var(--rv-space-7);background:var(--rv-viewport-overlay);border:var(--rv-border-thin) solid var(--rv-viewport-accent);padding:var(--rv-space-4) var(--rv-space-6);border-radius:var(--rv-radius-sm);color:var(--rv-viewport-text-strong);z-index:2}
+.camera-panel{display:flex;flex-direction:column}
+.camera-panel .panel-header{height:45px;flex:0 0 45px}
+.camera-views{display:flex;gap:var(--rv-space-2)}
+.camera-views button{font-size:var(--rv-font-size-xs);padding:5px var(--rv-space-3);border:var(--rv-border-thin) solid transparent;background:transparent;color:var(--rv-text-secondary);border-radius:var(--rv-radius-xs)}
+.camera-views button:hover{background:var(--rv-control-hover)}
+.camera-views button.active{background:var(--rv-accent-wash);color:var(--rv-accent);border-color:var(--rv-outline)}
+.camera-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--rv-space-8);padding:var(--rv-space-9) var(--rv-panel-padding) var(--rv-space-4)}
+.camera-controls .property{margin:0}
+.materials-panel{display:flex;flex-direction:column}
+.materials-scroll{padding:var(--rv-space-5) var(--rv-panel-padding);height:calc(100% - var(--rv-panel-header-height))}
+.material-preview{border:var(--rv-border-thin) solid var(--rv-outline);border-radius:var(--rv-radius-md);overflow:hidden;background:var(--rv-panel-secondary);margin-bottom:var(--rv-space-4)}
+.preview-cap{display:flex;align-items:center;justify-content:space-between;padding:var(--rv-space-3) var(--rv-space-4);font-size:var(--rv-font-size-xs);letter-spacing:var(--rv-letter-label);color:var(--rv-text-muted);font-weight:var(--rv-font-weight-semibold)}
+.preview-cap small{font-size:var(--rv-font-size-xs);font-weight:var(--rv-font-weight-normal)}
+#materialCanvas{width:100%;height:176px;display:block}
+.selected-material-label{display:flex;justify-content:space-between;align-items:center;padding:var(--rv-space-4) var(--rv-space-5);border-top:var(--rv-border-thin) solid var(--rv-outline);background:var(--rv-panel-bg);gap:var(--rv-space-2)}
+.selected-material-label span:first-child{font-weight:var(--rv-font-weight-semibold);font-size:var(--rv-font-size-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.selected-material-label span:last-child{font-size:var(--rv-font-size-xs);color:var(--rv-text-muted);letter-spacing:var(--rv-letter-label)}
+.material-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--rv-space-2);margin-bottom:var(--rv-space-8)}
+.material-actions button,.dialog-actions button{border:var(--rv-border-thin) solid var(--rv-outline);border-radius:var(--rv-radius-sm);background:var(--rv-control-bg);font-size:var(--rv-font-size-xs);font-weight:var(--rv-font-weight-bold);height:var(--rv-control-height);padding:0 var(--rv-space-2)}
+.material-actions .action-primary,.dialog-actions .action-primary{background:var(--rv-accent);color:var(--rv-accent-foreground);border-color:var(--rv-accent)}
+.materials-panel .property{margin-bottom:var(--rv-space-6)}
+.color-input-wrap{display:flex;align-items:center;gap:var(--rv-space-3);font-size:var(--rv-font-size-sm);color:var(--rv-text-secondary)}
+.text-action{border:0;background:transparent;color:var(--rv-accent);font-size:var(--rv-font-size-xs);font-weight:var(--rv-font-weight-semibold);cursor:pointer}
+.material-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:var(--rv-space-3);margin-bottom:var(--rv-space-6)}
+.swatch{aspect-ratio:1;border:var(--rv-border-thin) solid var(--rv-outline-strong);border-radius:var(--rv-radius-sm);background:var(--rv-panel-secondary);display:grid;place-items:center;position:relative;padding:4px;overflow:hidden}
+.swatch .swatch-orb{width:100%;aspect-ratio:1;border-radius:var(--rv-radius-pill);box-shadow:inset 2px 3px 7px var(--rv-preview-light), inset -3px -5px 6px var(--rv-viewport-shadow)}
+.swatch:hover,.swatch.selected{border-color:var(--rv-accent);outline:var(--rv-border-thin) solid var(--rv-accent)}
+.helper-note{color:var(--rv-text-muted);font-size:var(--rv-font-size-xs);padding:var(--rv-space-5);background:var(--rv-panel-secondary);border-radius:var(--rv-radius-sm);border:var(--rv-border-thin) solid var(--rv-separator)}
+.status-bar{height:var(--rv-statusbar-height);flex:0 0 var(--rv-statusbar-height);border-top:var(--rv-border-thin) solid var(--rv-outline);background:var(--rv-topbar-bg);display:flex;justify-content:space-between;align-items:center;gap:var(--rv-space-7);padding:0 var(--rv-space-7);color:var(--rv-text-secondary);font-size:var(--rv-font-size-xs)}
+.status-bar>div,.status-right{display:flex;align-items:center;gap:var(--rv-space-4)}
+.status-separator{height:12px;width:var(--rv-border-thin);background:var(--rv-outline)}
+.popover{position:fixed;z-index:10;min-width:188px;padding:var(--rv-space-2);background:var(--rv-overlay-bg);border:var(--rv-border-thin) solid var(--rv-outline);border-radius:var(--rv-radius-md);box-shadow:var(--rv-tooltip-shadow)}
+.popover button{width:100%;padding:var(--rv-space-4);display:flex;align-items:center;text-align:left;justify-content:space-between;border:0;background:transparent;border-radius:var(--rv-radius-sm);font-size:var(--rv-font-size-sm)}
+.popover button:hover{background:var(--rv-control-hover)}
+.popover button small{color:var(--rv-text-muted)}
+.modal{max-width:min(520px,90vw);width:520px;padding:var(--rv-space-9);border:var(--rv-border-thin) solid var(--rv-outline);border-radius:var(--rv-radius-xl);box-shadow:var(--rv-dialog-shadow);color:var(--rv-text-primary);background:var(--rv-overlay-bg)}
+.modal::backdrop{background:var(--rv-overlay-backdrop)}
+.dialog-header{display:flex;justify-content:space-between;align-items:center;gap:var(--rv-space-3)}
+.dialog-header h2{margin:0;font-size:var(--rv-font-size-title)}
+.close-modal{font-size:25px;background:none;border:none;color:var(--rv-text-muted)}
+.modal p{font-size:var(--rv-font-size-md);color:var(--rv-text-secondary)}
+.dialog-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:var(--rv-space-3);margin-top:var(--rv-space-7)}
+.dialog-actions button{height:35px;padding:0 var(--rv-space-5)}
+.library-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--rv-space-3);margin-top:var(--rv-space-7)}
+.library-card{display:flex;align-items:center;gap:var(--rv-space-3);min-width:0;padding:var(--rv-space-3);border:var(--rv-border-thin) solid var(--rv-outline);background:var(--rv-control-bg);border-radius:var(--rv-radius-sm);font-size:var(--rv-font-size-sm)}
+.library-card .mini-orb{width:27px;height:27px;border-radius:var(--rv-radius-pill);flex-shrink:0}
+.library-card .library-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.render-configuration{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--rv-space-3);margin:var(--rv-space-7) 0}
+.render-configuration div{background:var(--rv-control-bg);padding:var(--rv-space-5);border:var(--rv-border-thin) solid var(--rv-outline);border-radius:var(--rv-radius-sm);display:flex;flex-direction:column;gap:var(--rv-space-2)}
+.render-configuration span{color:var(--rv-text-muted);font-size:var(--rv-font-size-xs)}
+.render-configuration strong{font-size:var(--rv-font-size-sm)}
+.help-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--rv-space-5);padding:var(--rv-space-7) 0;font-size:var(--rv-font-size-sm)}
+.help-grid kbd{margin-right:var(--rv-space-3)}
+@media(max-width:1350px){:root{--rv-left-width:232px;--rv-right-width:280px;--rv-space-9:20px}.brand{min-width:158px}.version-tag{display:none}.topbar{gap:var(--rv-space-3)}.main-menu{gap:2px}.menu-btn{padding:0 var(--rv-space-3)}.engine-control{margin-left:0}.render-btn{padding:0 var(--rv-space-5)}.viewport-shortcuts{display:none}}
+@media(max-height:770px){:root{--rv-camera-height:146px;--rv-panel-header-height:43px}.panel-scroll,.materials-scroll{padding-top:var(--rv-space-3)}.camera-controls{padding-top:var(--rv-space-5)}.material-preview #materialCanvas{height:133px}.property{margin-bottom:var(--rv-space-5)}.materials-panel .property{margin-bottom:var(--rv-space-4)}.left-stack{grid-template-rows:minmax(220px,1fr) minmax(160px,.75fr)}}
+
+</style>
+  <style id="rv-layout-corrections">
+/* RV Studio Render — correções de layout. Apenas tokens definem aparência. */
+:root {
+  --rv-topbar-two-row-gap: var(--rv-space-3);
+  --rv-mobile-left-min: 210px;
+  --rv-mobile-center-min: 570px;
+  --rv-mobile-materials-min: 470px;
+  --rv-compact-radius: var(--rv-radius-sm);
+  --rv-compact-button-pad: var(--rv-space-3);
+  --rv-compact-card-gap: var(--rv-space-3);
+}
+.app-shell { min-width: 0; }
+.main-menu { overflow: hidden; }
+.menu-btn, .render-btn, .engine-control { flex-shrink: 0; }
+.environment-panel { display: flex; flex-direction: column; }
+.environment-panel .panel-scroll, .materials-panel .materials-scroll {
+  height: auto; min-height: 0; flex: 1 1 auto;
+}
+.material-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.material-actions button { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.camera-controls .property { min-width: 0; }
+.camera-controls .slider-line { min-width: 0; }
+.camera-controls .slider-line output { flex: 0 0 48px; width: 48px; }
+.orientation-control { top: calc(var(--rv-panel-header-height) + var(--rv-space-4)); }
+.status-bar { min-width: 0; }
+.status-bar #statusText { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.status-right { flex-shrink: 0; }
+@media (max-width: 1380px) {
+  .camera-controls { gap: var(--rv-space-5); }
+  .viewport-shortcuts { display: none; }
+}
+/* Duas colunas: preserva viewport amplo sem recortar painéis. */
+@media (max-width: 1160px) {
+  .app-shell { height: auto; min-height: 100dvh; overflow: visible; }
+  .topbar {
+    height: auto; min-height: var(--rv-topbar-height); flex: 0 0 auto;
+    display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'brand tools' 'menu menu';
+    row-gap: var(--rv-topbar-two-row-gap);
+    padding-top: var(--rv-space-3); padding-bottom: var(--rv-space-3);
+  }
+  .brand { grid-area: brand; min-width: 0; }
+  .main-menu {
+    grid-area: menu; min-width: 0; max-width: 100%; width: 100%;
+    overflow-x: auto; scrollbar-width: thin; padding-bottom: var(--rv-space-1);
+  }
+  .window-tools { grid-area: tools; justify-self: end; }
+  .workspace {
+    flex: 1 0 auto; display: grid;
+    grid-template-columns: minmax(var(--rv-mobile-left-min), 230px) minmax(0, 1fr);
+    grid-template-areas: 'left center' 'materials materials';
+    grid-template-rows: minmax(var(--rv-mobile-center-min), 640px) minmax(var(--rv-mobile-materials-min), 610px);
+    align-items: stretch;
+  }
+  .left-stack { grid-area: left; min-height: var(--rv-mobile-center-min); }
+  .center-stack { grid-area: center; min-height: var(--rv-mobile-center-min); }
+  .materials-panel { grid-area: materials; min-height: var(--rv-mobile-materials-min); max-height: 720px; }
+  .materials-scroll {
+    display: grid; grid-template-columns: minmax(235px, .7fr) minmax(0, 1fr);
+    grid-template-rows: repeat(8, auto); gap: var(--rv-compact-card-gap) var(--rv-space-9);
+    align-content: start; overflow-y: auto;
+  }
+  .materials-scroll > .material-preview { grid-column: 1; grid-row: 1 / span 6; align-self: start; margin-bottom: 0; }
+  .materials-scroll > .material-actions { grid-column: 1; grid-row: 7; align-self: start; }
+  .materials-scroll > :nth-child(3) { grid-column: 2; grid-row: 1; }
+  .materials-scroll > :nth-child(4) { grid-column: 2; grid-row: 2; }
+  .materials-scroll > :nth-child(5) { grid-column: 2; grid-row: 3; }
+  .materials-scroll > :nth-child(6) { grid-column: 2; grid-row: 4; }
+  .materials-scroll > :nth-child(7) { grid-column: 2; grid-row: 5; }
+  .materials-scroll > :nth-child(8) { grid-column: 2; grid-row: 6; }
+  .materials-scroll > .section-divider { grid-column: 1 / -1; grid-row: 8; margin: var(--rv-space-1) 0; }
+  .materials-scroll > :nth-child(10) { grid-column: 1 / -1; grid-row: 9; }
+  .materials-scroll > .material-grid { grid-column: 1 / -1; grid-row: 10; grid-template-columns: repeat(10, minmax(0, 1fr)); }
+  .materials-scroll > .helper-note { grid-column: 1 / -1; grid-row: 11; }
+  .materials-panel .property { margin-bottom: 0; }
+  .status-bar { padding-inline: var(--rv-space-4); }
+}
+@media (max-width: 780px) {
+  .main-menu .render-btn { order: -1; }
+  .workspace {
+    grid-template-columns: minmax(0, 1fr); grid-template-areas: 'center' 'left' 'materials';
+    grid-template-rows: auto auto auto;
+  }
+  .center-stack { min-height: 610px; grid-template-rows: minmax(365px, 1fr) var(--rv-camera-height); }
+  .left-stack {
+    min-height: 370px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: minmax(370px, auto);
+  }
+  .materials-panel { min-height: 460px; }
+  .status-bar .status-right { display: none; }
+  .status-bar > div:first-child { min-width: 0; flex: 1 1 auto; }
+  .status-bar #statusText { display: block; min-width: 0; }
+  .viewport-bottom { right: var(--rv-space-3); left: var(--rv-space-3); }
+}
+@media (max-width: 620px) {
+  :root { --rv-camera-height: 218px; }
+  .brand-mark { width: var(--rv-nav-height); height: var(--rv-nav-height); }
+  .topbar { padding-inline: var(--rv-space-4); }
+  .main-menu { gap: var(--rv-space-1); }
+  .menu-btn { padding-inline: var(--rv-compact-button-pad); }
+  .workspace { gap: var(--rv-space-3); padding: var(--rv-space-3); }
+  .left-stack { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(300px, auto) minmax(260px, auto); }
+  .center-stack { min-height: 620px; grid-template-rows: minmax(360px, 1fr) var(--rv-camera-height); }
+  .camera-panel .panel-header { padding-inline: var(--rv-space-3); }
+  .camera-views { gap: 0; }
+  .camera-views button { padding-inline: var(--rv-space-2); }
+  .camera-controls { grid-template-columns: minmax(0, 1fr); padding: var(--rv-space-3); gap: var(--rv-space-3); }
+  .camera-controls .property { gap: var(--rv-space-2); }
+  .materials-scroll { display: block; }
+  .materials-scroll > .material-preview { margin-bottom: var(--rv-space-5); }
+  .materials-scroll > .material-actions { margin-bottom: var(--rv-space-7); }
+  .materials-scroll > .property { margin-bottom: var(--rv-space-5); }
+  .materials-scroll > .material-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .orientation-control { width: 92px; height: 87px; gap: var(--rv-space-1); }
+  .viewport-bottom .view-instructions { gap: var(--rv-space-2); }
+  .viewport-bottom .view-instructions span:last-child { display: none; }
+  .status-bar { height: auto; min-height: var(--rv-statusbar-height); }
+}
+
+  </style>
+</head>
+<body data-theme="light">
+  <svg xmlns="http://www.w3.org/2000/svg" class="icon-defs" aria-hidden="true">
+    <symbol id="i-cube" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5ZM3 8v9l9 5V13m9-5v9l-9 5"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 15.8A8 8 0 0 1 8.2 4 8.1 8.1 0 1 0 20 15.8Z"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14 4H9L7 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-4l-2-3Z"/><circle cx="12" cy="14" r="4"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M3 3 21 21M9.9 5.2A11.5 11.5 0 0 1 12 5c6.4 0 10 7 10 7a16 16 0 0 1-3 3.7M6.3 6.4C3.6 8.4 2 12 2 12s3.6 7 10 7c1.7 0 3.2-.5 4.5-1.2M10 10a3 3 0 0 0 4 4"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="7"/><path d="m16 16 5 5"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2.5"/><circle cx="16" cy="17" r="2.5"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2 9 5-9 5-9-5 9-5Zm-9 10 9 5 9-5M3 17l9 5 9-5"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><path d="M10 2h4l.7 2.2 2 .9 2.1-1.1 2.8 2.8-1.1 2.1.9 2L23 11v4l-2.2.7-.9 2 1.1 2.1-2.8 2.8-2.1-1.1-2 .9L14 23h-4l-.7-2.2-2-.9-2.1 1.1-2.8-2.8 1.1-2.1-.9-2L1 15v-4l2.2-.7.9-2L3 6.2l2.8-2.8 2.1 1.1 2-.9L10 2Z"/><circle cx="12" cy="13" r="3.1"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 2 2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5L12 2Z"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16"/></symbol>
+    <symbol id="i-focus" viewBox="0 0 24 24"><path d="M8 2H4a2 2 0 0 0-2 2v4m14-6h4a2 2 0 0 1 2 2v4M2 16v4a2 2 0 0 0 2 2h4m14-6v4a2 2 0 0 1-2 2h-4"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M12 5v14m-7-7 7 7 7-7"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m4 12 5 5L20 6"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.6 2.6 0 0 1 5 1c0 2-2.5 2-2.5 4M12 18h.01"/></symbol>
+  </svg>
+
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand" aria-label="RV Studio Render">
+        <span class="brand-mark"><svg><use href="#i-cube"/></svg></span>
+        <span class="brand-copy"><strong>RV <span>STUDIO</span></strong><small>RENDER</small></span>
+        <span class="version-tag">BASE UI</span>
+      </div>
+      <nav class="main-menu" aria-label="Menu principal">
+        <button class="menu-btn" data-menu="arquivo">ARQUIVO<svg><use href="#i-chevron"/></svg></button>
+        <button class="menu-btn" data-menu="editar">EDITAR<svg><use href="#i-chevron"/></svg></button>
+        <button class="menu-btn" data-menu="efeitos">EFEITOS<svg><use href="#i-chevron"/></svg></button>
+        <button class="menu-btn" data-menu="objeto">OBJETO<svg><use href="#i-chevron"/></svg></button>
+        <button class="menu-btn" data-menu="preferencias">PREFERÊNCIAS<svg><use href="#i-chevron"/></svg></button>
+        <button class="render-btn" id="renderTop"><svg><use href="#i-spark"/></svg> RENDERIZAR</button>
+        <div class="engine-control"><span>MOTOR</span><select id="engine" aria-label="Motor de render"><option>Cycles</option><option>LuxCore</option></select></div>
+      </nav>
+      <div class="window-tools">
+        <span class="splitter"></span>
+        <button class="icon-button" id="themeToggle" title="Alternar tema claro/escuro" aria-label="Alternar tema"><svg><use href="#i-moon"/></svg></button>
+        <button class="icon-button" id="helpTop" title="Ajuda e atalhos" aria-label="Ajuda"><svg><use href="#i-help"/></svg></button>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <aside class="left-stack">
+        <section class="panel environment-panel" aria-label="Ambiente e iluminação">
+          <div class="panel-header"><div class="panel-title"><svg><use href="#i-sun"/></svg><span>AMBIENTE / GLOBAL</span></div><button class="ghost-icon" title="Presets de estúdio" id="presetBtn"><svg><use href="#i-more"/></svg></button></div>
+          <div class="panel-scroll">
+            <div class="group-label"><span>ILUMINAÇÃO</span><span>ESTÚDIO 01</span></div>
+            <div class="property"><label for="envExposure">Exposição global</label><div class="slider-line"><input id="envExposure" type="range" min="0" max="100" value="52"><output for="envExposure" id="envExposureValue">52%</output></div></div>
+            <div class="property"><label for="keyLight">Luz principal</label><div class="slider-line"><input id="keyLight" type="range" min="0" max="100" value="78"><output id="keyLightValue">78%</output></div></div>
+            <div class="property"><label for="fillLight">Preenchimento</label><div class="slider-line"><input id="fillLight" type="range" min="0" max="100" value="38"><output id="fillLightValue">38%</output></div></div>
+            <div class="property"><label for="rimLight">Contraluz</label><div class="slider-line"><input id="rimLight" type="range" min="0" max="100" value="65"><output id="rimLightValue">65%</output></div></div>
+            <div class="section-divider"></div>
+            <div class="group-label"><span>AMBIENTAÇÃO</span></div>
+            <div class="property"><label for="shadow">Intensidade das sombras</label><div class="slider-line"><input id="shadow" type="range" min="0" max="100" value="60"><output id="shadowValue">60%</output></div></div>
+            <div class="property"><label for="softness">Suavidade da luz</label><div class="slider-line"><input id="softness" type="range" min="0" max="100" value="52"><output id="softnessValue">52%</output></div></div>
+            <div class="property property-inline"><label for="backgroundColor">Cor de fundo</label><input id="backgroundColor" type="color" value="#e8edf2" aria-label="Cor de fundo"></div>
+            <div class="property property-inline"><label for="floorVisible">Piso e sombra de contato</label><input id="floorVisible" type="checkbox" checked></div>
+            <div class="presets"><button class="preset selected" data-preset="claro">Claro</button><button class="preset" data-preset="escuro">Escuro</button><button class="preset" data-preset="suave">Suave</button></div>
+          </div>
+        </section>
+
+        <section class="panel outliner-panel" aria-label="Hierarquia de objetos">
+          <div class="panel-header"><div class="panel-title"><svg><use href="#i-layers"/></svg><span>OUTLINE / OBJETOS</span></div><span class="counter" id="objectCount">5</span></div>
+          <div class="outliner-search"><svg><use href="#i-search"/></svg><input id="objectSearch" placeholder="Buscar objeto..." aria-label="Buscar objeto"></div>
+          <div class="scene-heading"><svg><use href="#i-chevron"/></svg><span>Cena principal</span><small id="sceneCount">5 itens</small></div>
+          <div id="objectList" class="object-list" role="listbox" aria-label="Objetos da cena"></div>
+          <div class="outliner-actions"><button id="addObjectBtn"><svg><use href="#i-plus"/></svg> Adicionar objeto</button><button class="icon-button" id="focusBtn" title="Enquadrar seleção (F)"><svg><use href="#i-focus"/></svg></button></div>
+        </section>
+      </aside>
+
+      <main class="center-stack">
+        <section class="panel viewport-panel" aria-label="Viewport 3D demonstrativo">
+          <div class="viewport-top">
+            <div class="view-badges"><span class="view-live"><span class="live-dot"></span> VIEWPORT 3D</span><span class="view-pill" id="projectionLabel">PERSPECTIVA</span><span class="view-pill" id="modeLabel">OBJETO</span></div>
+            <div class="view-buttons"><button class="icon-button" id="fitAllBtn" title="Enquadrar todos os objetos (Home)"><svg><use href="#i-focus"/></svg></button><button class="icon-button" id="gridBtn" title="Mostrar ou ocultar grade"><svg><use href="#i-box"/></svg></button></div>
+          </div>
+          <canvas id="sceneCanvas" aria-label="Prévia interativa conceitual. Arraste para orbitar; use a roda para zoom."></canvas>
+          <div class="orientation-control" aria-label="Orientação da vista">
+            <button data-view="top" class="axis-top">TOPO</button>
+            <button data-view="left" class="axis-left">ESQ</button>
+            <button data-view="front" class="axis-front">FRENTE</button>
+            <button data-view="iso" class="axis-iso" title="Vista isométrica">◇</button>
+            <span class="axis-lines"><i class="axis-x"></i><i class="axis-y"></i><i class="axis-z"></i></span>
+          </div>
+          <div class="viewport-bottom">
+            <div class="view-instructions"><strong>DEMONSTRAÇÃO</strong> <span>Arrastar: órbita</span><span>Shift + arrastar: pan</span><span>Roda: zoom</span></div>
+            <div class="viewport-shortcuts"><kbd>G</kbd> mover <kbd>S</kbd> escala <kbd>R</kbd> girar</div>
+          </div>
+          <div class="transform-hint" id="transformHint" hidden></div>
+        </section>
+
+        <section class="panel camera-panel" aria-label="Configurações de câmera">
+          <div class="panel-header compact"><div class="panel-title"><svg><use href="#i-camera"/></svg><span>CÂMERA</span></div><div class="camera-views"><button data-view="front">Frontal</button><button data-view="top">Superior</button><button data-view="iso" class="active">Perspectiva</button></div></div>
+          <div class="camera-controls">
+            <div class="property"><label for="cameraAzimuth">Rotação horizontal</label><div class="slider-line"><input id="cameraAzimuth" type="range" min="-180" max="180" value="-35"><output id="cameraAzimuthValue">-35°</output></div></div>
+            <div class="property"><label for="cameraElevation">Rotação vertical</label><div class="slider-line"><input id="cameraElevation" type="range" min="-70" max="80" value="28"><output id="cameraElevationValue">28°</output></div></div>
+            <div class="property"><label for="cameraDistance">Distância / Zoom</label><div class="slider-line"><input id="cameraDistance" type="range" min="3" max="18" step=".1" value="8"><output id="cameraDistanceValue">8.0 m</output></div></div>
+          </div>
+        </section>
+      </main>
+
+      <aside class="panel materials-panel" aria-label="Editor de materiais">
+        <div class="panel-header"><div class="panel-title"><svg><use href="#i-sliders"/></svg><span>MATERIAIS</span></div><span class="counter">PBR</span></div>
+        <div class="materials-scroll">
+          <div class="material-preview"><div class="preview-cap"><span>PRÉVIA DO MATERIAL</span><small>SHADER DEMO</small></div><canvas id="materialCanvas" width="280" height="204" aria-label="Esfera de material demonstrativa"></canvas><div class="selected-material-label"><span id="materialName">Cerâmica Âmbar</span><span id="materialCategory">CERÂMICA</span></div></div>
+          <div class="material-actions"><button id="applyMaterial" class="action-primary">APLICAR</button><button id="selectMaterial">SELECIONAR</button><button id="editMaterial">EDITAR</button><button id="createMaterial">CRIAR</button></div>
+          <div class="group-label"><span>PROPRIEDADES PBR</span><span id="selectedObjectName">Corpo principal</span></div>
+          <div class="property"><label for="materialMetal">Metálico</label><div class="slider-line"><input id="materialMetal" type="range" min="0" max="100" value="15"><output id="materialMetalValue">15%</output></div></div>
+          <div class="property"><label for="materialRough">Rugosidade</label><div class="slider-line"><input id="materialRough" type="range" min="0" max="100" value="24"><output id="materialRoughValue">24%</output></div></div>
+          <div class="property"><label for="materialTransmission">Transmissão</label><div class="slider-line"><input id="materialTransmission" type="range" min="0" max="100" value="0"><output id="materialTransmissionValue">0%</output></div></div>
+          <div class="property"><label for="materialIOR">Índice de refração</label><div class="slider-line"><input id="materialIOR" type="range" min="100" max="250" value="145"><output id="materialIORValue">1.45</output></div></div>
+          <div class="property property-inline"><label for="materialColor">Cor base</label><div class="color-input-wrap"><input id="materialColor" type="color" value="#d18c49"><span id="materialHex">#D18C49</span></div></div>
+          <div class="section-divider"></div>
+          <div class="group-label"><span>BIBLIOTECA</span><button id="openLibrary" class="text-action">VER TODOS</button></div>
+          <div class="material-grid" id="materialSwatches" aria-label="Materiais rápidos"></div>
+          <div class="helper-note">Base visual editável. Os materiais e o viewport são demonstrativos, não um renderizador Cycles.</div>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="status-bar"><div><span class="status-dot"></span><span id="statusText">Interface pronta para personalização</span></div><div class="status-right"><span id="objectStats">5 objetos</span><span class="status-separator"></span><span id="renderStatus">Render: demonstração</span><span class="status-separator"></span><span>RV STUDIO · LAYOUT CORRIGIDO</span></div></footer>
+  </div>
+
+  <div id="popoverMenu" class="popover" hidden></div>
+  <dialog id="libraryDialog" class="modal" aria-labelledby="libraryTitle"><div class="dialog-header"><h2 id="libraryTitle">Biblioteca de materiais</h2><button class="close-modal" data-close="libraryDialog" aria-label="Fechar">×</button></div><p>Exemplos de categorias PBR para integrar ao motor de renderização.</p><div id="libraryGrid" class="library-grid"></div><div class="dialog-actions"><button data-close="libraryDialog">Fechar</button></div></dialog>
+  <dialog id="renderDialog" class="modal" aria-labelledby="renderTitle"><div class="dialog-header"><h2 id="renderTitle">Renderizar</h2><button class="close-modal" data-close="renderDialog" aria-label="Fechar">×</button></div><p>Esta base HTML apresenta somente a interface. O render fotográfico com Cycles/LuxCore deverá ser conectado ao backend do RV Studio.</p><div class="render-configuration"><div><span>Motor escolhido</span><strong id="renderEngineName">Cycles</strong></div><div><span>Cena</span><strong id="renderObjectCount">5 objetos</strong></div><div><span>Prévia</span><strong>Canvas ilustrativo</strong></div></div><div class="dialog-actions"><button id="exportPreview" class="action-primary">Exportar imagem do viewport (PNG)</button><button data-close="renderDialog">Cancelar</button></div></dialog>
+  <dialog id="helpDialog" class="modal" aria-labelledby="helpTitle"><div class="dialog-header"><h2 id="helpTitle">Atalhos e navegação</h2><button class="close-modal" data-close="helpDialog" aria-label="Fechar">×</button></div><div class="help-grid"><span><kbd>G</kbd> Mover objeto</span><span><kbd>S</kbd> Escalar objeto</span><span><kbd>R</kbd> Rotacionar</span><span><kbd>F</kbd> Enquadrar selecionado</span><span><kbd>Home</kbd> Enquadrar cena</span><span><kbd>Esc</kbd> Cancelar operação</span><span><kbd>Shift+A</kbd> Adicionar objeto</span><span><kbd>Delete</kbd> Remover objeto</span></div><p>Viewport demonstrativo em Canvas 2D, com projeção 3D simplificada.</p><div class="dialog-actions"><button data-close="helpDialog">Fechar</button></div></dialog>
+  <script>
+/* RV Studio Render — base de interface independente do backend.
+ * Todas as cores de UI, bordas, tamanhos e tipografia vêm de design-system.css.
+ * Cores de MATERIAIS e de CENA são dados editáveis do usuário, não tokens da interface.
+ */
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const $$ = query => [...document.querySelectorAll(query)];
+  const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+  const lerp = (a,b,t) => a+(b-a)*t;
+  const rad = deg => deg*Math.PI/180;
+  const palettes = [
+    {id:'ceramic', name:'Cerâmica Âmbar',category:'CERÂMICA',color:'#d18c49',metal:15,rough:24,transmission:0,ior:145},
+    {id:'gold',name:'Ouro escovado',category:'METAIS',color:'#b99a54',metal:92,rough:30,transmission:0,ior:150},
+    {id:'steel',name:'Aço acetinado',category:'METAIS',color:'#aebbc8',metal:93,rough:31,transmission:0,ior:150},
+    {id:'pearl',name:'Porcelana branca',category:'CERÂMICA',color:'#ede9df',metal:0,rough:14,transmission:0,ior:150},
+    {id:'blue',name:'Plástico azul',category:'PLÁSTICOS',color:'#4386c7',metal:0,rough:32,transmission:0,ior:146},
+    {id:'rubber',name:'Borracha grafite',category:'BORRACHAS',color:'#45494b',metal:0,rough:77,transmission:0,ior:150},
+    {id:'wood',name:'Madeira nogueira',category:'MADEIRAS',color:'#946342',metal:0,rough:62,transmission:0,ior:152},
+    {id:'glass',name:'Vidro fumê',category:'VIDROS',color:'#99c5d2',metal:0,rough:5,transmission:88,ior:152},
+    {id:'stone',name:'Pedra clara',category:'PEDRAS',color:'#c8bab1',metal:0,rough:68,transmission:0,ior:150},
+    {id:'fabric',name:'Tecido linho',category:'TECIDOS',color:'#d8c7aa',metal:0,rough:93,transmission:0,ior:150},
+    {id:'fdm',name:'PLA seda cobre',category:'IMPRESSÃO 3D',color:'#bc7047',metal:42,rough:31,transmission:0,ior:149},
+    {id:'matte',name:'Plástico fosco',category:'PLÁSTICOS',color:'#8fb39d',metal:0,rough:81,transmission:0,ior:147},
+  ];
+  const icon = (name) => `<svg aria-hidden="true"><use href="#i-${name}"/></svg>`;
+  const vector = (x=0,y=0,z=0) => ({x,y,z});
+  let autoId=6;
+  const objects = [
+    {id:1,name:'Corpo principal',kind:'sphere',position:vector(0,0,1.32),scale:1.2,rotation:0,visible:true,mat:'ceramic'},
+    {id:2,name:'Base do produto',kind:'cylinder',position:vector(0,0,0.33),scale:1.22,rotation:0,visible:true,mat:'steel'},
+    {id:3,name:'Plano de estúdio',kind:'plane',position:vector(0,0,0),scale:1,rotation:0,visible:true,mat:'pearl'},
+    {id:4,name:'Softbox principal',kind:'light',position:vector(-2,1,3),scale:1,rotation:0,visible:true,mat:'pearl'},
+    {id:5,name:'Câmera 01',kind:'camera',position:vector(6,-6,4),scale:1,rotation:0,visible:true,mat:'steel'},
+  ];
+  let selectedId=1, activeMaterial='ceramic', yaw=-35, elevation=28, distance=8, pivot=vector(0,0,1), pan=vector(0,0,0);
+  let orthographic=false, showGrid=true, showDemo=true, drag=null, transform=null, menuOpen=null;
+  let pointerCache=[], dirty=true, canvasCss=null;
+  const scene=$('sceneCanvas'), ctx=scene.getContext('2d');
+  const materialCanvas=$('materialCanvas'), mctx=materialCanvas.getContext('2d');
+  const selected=()=>objects.find(o=>o.id===selectedId);
+  const currentMaterial=()=>palettes.find(m=>m.id===activeMaterial) ?? palettes[0];
+  const matFor=o=>palettes.find(m=>m.id===o.mat) || palettes[0];
+  const say=s=>{ $('statusText').textContent=s; };
+  const css=(name)=>getComputedStyle(document.body).getPropertyValue('--rv-'+name).trim();
+  function setTheme(name){
+    const theme=name==='dark'?'dark':'light'; document.body.dataset.theme=theme;
+    try{localStorage.setItem('rv-layout-theme',theme);}catch{}
+    $('themeToggle').innerHTML=icon(theme==='dark'?'sun':'moon');
+    $('themeToggle').title=`Alternar para tema ${theme==='dark'?'claro':'escuro'}`;
+    canvasCss=null; dirty=true; materialPreview(); renderScene();
+  }
+  $('themeToggle').addEventListener('click',()=>setTheme(document.body.dataset.theme==='light'?'dark':'light'));
+  function stats(){
+    const count=objects.length; $('objectCount').textContent=count;
+    $('sceneCount').textContent=`${count} itens`;
+    $('objectStats').textContent=`${count} objetos`;
+    $('renderObjectCount').textContent=`${count} objetos`;
+  }
+  function objectIcon(kind){return kind==='light'?'sun':kind==='camera'?'camera':kind==='plane'?'box':'cube'}
+  function populateOutliner(){
+    const filter=$('objectSearch').value.toLocaleLowerCase('pt-BR');
+    const root=$('objectList');root.replaceChildren();
+    for(const obj of objects.filter(o=>o.name.toLocaleLowerCase('pt-BR').includes(filter))){
+      const node=document.createElement('div');node.className='object-row'+(obj.id===selectedId?' selected':'');
+      node.setAttribute('role','option');node.setAttribute('aria-selected',String(obj.id===selectedId));
+      node.tabIndex=0;
+      node.innerHTML=`${icon(objectIcon(obj.kind))}<span class="object-name"></span><button class="visibility-btn" title="Alternar visibilidade" aria-label="Visibilidade" aria-pressed="${obj.visible}">${icon(obj.visible?'eye':'eye-off')}</button>`;
+      node.querySelector('.object-name').textContent=obj.name;
+      node.onclick=()=>selectObject(obj.id);
+      node.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();selectObject(obj.id)}};
+      node.querySelector('button').onclick=e=>{e.stopPropagation();obj.visible=!obj.visible;populateOutliner();dirty=true;renderScene();say(`${obj.name}: ${obj.visible?'visível':'oculto'}`)};
+      root.append(node);
+    }
+    stats();
+  }
+  function selectObject(id){selectedId=id;const obj=selected();if(!obj)return;
+    activeMaterial=obj.mat||'ceramic';syncMaterial();populateOutliner();dirty=true;renderScene();say(`Selecionado: ${obj.name}`);
+    $('selectedObjectName').textContent=obj.name;
+  }
+  const kindMap={cube:'Cubo',sphere:'Esfera',cylinder:'Cilindro',plane:'Plano',light:'Luz de área',camera:'Câmera'};
+  function addObject(kind){
+    const id=autoId++; const count=objects.filter(o=>o.kind===kind).length+1;
+    const obj={id,name:`${kindMap[kind]||'Objeto'} ${String(count).padStart(2,'0')}`,kind,
+      position:vector((count-1)*.5,0,kind==='light'?3:kind==='plane'?0:1),scale:1,rotation:0,visible:true,mat:activeMaterial};
+    objects.push(obj);selectObject(id);say(`${obj.name} adicionado à demonstração.`);
+  }
+  const formSliders=[
+    ['envExposure','envExposureValue','%'],['keyLight','keyLightValue','%'],['fillLight','fillLightValue','%'],['rimLight','rimLightValue','%'],
+    ['shadow','shadowValue','%'],['softness','softnessValue','%'],['cameraAzimuth','cameraAzimuthValue','°'],
+    ['cameraElevation','cameraElevationValue','°'],['cameraDistance','cameraDistanceValue','m'],
+    ['materialMetal','materialMetalValue','%'],['materialRough','materialRoughValue','%'],
+    ['materialTransmission','materialTransmissionValue','%'],['materialIOR','materialIORValue',''],
+  ];
+  for(const [key,out,unit] of formSliders){
+    $(key).addEventListener('input',()=>{
+      let value=Number($(key).value);
+      $(out).textContent=key==='materialIOR'?(value/100).toFixed(2):key==='cameraDistance'?value.toFixed(1)+' m':value+unit;
+      if(key==='cameraAzimuth')yaw=value;
+      if(key==='cameraElevation')elevation=value;
+      if(key==='cameraDistance')distance=value;
+      if(key.startsWith('material')){const mat=currentMaterial();
+        const prop={materialMetal:'metal',materialRough:'rough',materialTransmission:'transmission',materialIOR:'ior'}[key];
+        mat[prop]=value; materialPreview();}
+      renderScene();
+    });
+  }
+  $('materialColor').addEventListener('input',()=>{currentMaterial().color=$('materialColor').value; syncMaterial();renderScene()});
+  $('objectSearch').addEventListener('input',populateOutliner);
+  $('floorVisible').addEventListener('change',()=>{dirty=true;renderScene();});
+  $('backgroundColor').addEventListener('input',()=>{dirty=true;renderScene()});
+  function cameraInputs(){
+    $('cameraAzimuth').value=Math.round(yaw);$('cameraAzimuthValue').textContent=`${Math.round(yaw)}°`;
+    $('cameraElevation').value=Math.round(elevation);$('cameraElevationValue').textContent=`${Math.round(elevation)}°`;
+    $('cameraDistance').value=distance;$('cameraDistanceValue').textContent=`${distance.toFixed(1)} m`;
+  }
+  function setView(view){
+    const presets={front:[0,0],left:[90,0],top:[0,89.9],iso:[-35,28]};
+    [yaw,elevation]=presets[view]||presets.iso;orthographic=view!=='iso';cameraInputs();
+    $$('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
+    $('projectionLabel').textContent=orthographic?'ORTOGRÁFICA':'PERSPECTIVA';
+    renderScene();say(`Vista ${view==='iso'?'isométrica':view==='front'?'frontal':view==='left'?'lateral':'superior'}`);
+  }
+  $$('[data-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
+  const rgba=(hex,alpha=1)=>{const h=hex.trim().replace('#','');if(![6,8].includes(h.length))return `rgba(124,144,164,${alpha})`;
+    const a=h.length===8?parseInt(h.slice(6,8),16)/255:1;return `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},${alpha*a})`};
+  function hexRgb(hex){let h=hex.replace('#','');return [0,2,4].map(i=>parseInt(h.slice(i,i+2),16))}
+  function brighter(hex,d){const rgb=hexRgb(hex);return 'rgb('+rgb.map(v=>clamp(Math.round(v+d),0,255)).join(',')+')'}
+  function materialPreview(){
+    const box=materialCanvas.getBoundingClientRect();let width=box.width||280,height=box.height||175;
+    const dpr=Math.min(devicePixelRatio||1,2),w=Math.round(width*dpr),h=Math.round(height*dpr);
+    if(materialCanvas.width!==w||materialCanvas.height!==h){materialCanvas.width=w;materialCanvas.height=h}
+    const g=mctx;g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,width,height);
+    const bg=g.createLinearGradient(0,0,0,height);bg.addColorStop(0,css('preview-bg'));bg.addColorStop(1,css('preview-stage'));g.fillStyle=bg;g.fillRect(0,0,width,height);
+    const c=currentMaterial(),r=Math.min(width*.26,height*.40),x=width/2,y=height*.50;
+    g.fillStyle=rgba(css('viewport-shadow'),.35);g.beginPath();g.ellipse(x,y+r*.98,r*.94,r*.18,0,0,2*Math.PI);g.fill();
+    const grad=g.createRadialGradient(x-r*.35,y-r*.45,r*.04,x+r*.15,y+r*.1,r*1.45);
+    grad.addColorStop(0,brighter(c.color,85));grad.addColorStop(.22,brighter(c.color,38));grad.addColorStop(.56,c.color);grad.addColorStop(1,brighter(c.color,-85));
+    g.beginPath();g.arc(x,y,r,0,2*Math.PI);g.fillStyle=grad;g.fill();
+    g.save();g.beginPath();g.arc(x,y,r,0,2*Math.PI);g.clip();
+    const spec=g.createRadialGradient(x-r*.4,y-r*.46,r*.03,x-r*.35,y-r*.4,r*(.48+c.rough/300));
+    spec.addColorStop(0,rgba('#ffffff',c.metal>70?.72:.88));spec.addColorStop(.5,rgba('#ffffff',.16));spec.addColorStop(1,rgba('#ffffff',0));
+    g.fillStyle=spec;g.fillRect(x-r,y-r,2*r,2*r);g.restore();
+    g.strokeStyle=rgba(css('preview-ink'),.35);g.lineWidth=1;g.beginPath();g.arc(x,y,r,0,2*Math.PI);g.stroke();
+    $('materialName').textContent=c.name;$('materialCategory').textContent=c.category;
+  }
+  function syncMaterial(preview=true){const c=currentMaterial();
+    const props={materialMetal:'metal',materialRough:'rough',materialTransmission:'transmission',materialIOR:'ior'};
+    for(const key in props){$(key).value=c[props[key]];$(key+'Value').textContent=key==='materialIOR'?(c.ior/100).toFixed(2):c[props[key]]+'%';}
+    $('materialColor').value=c.color;$('materialHex').textContent=c.color.toUpperCase();
+    if(preview)materialPreview();refreshSwatches();
+  }
+  function swatchOrb(c){const orb=document.createElement('div');orb.className='swatch-orb';
+    orb.style.background=`radial-gradient(circle at 30% 25%, ${brighter(c.color,80)} 1%, ${c.color} 57%, ${brighter(c.color,-65)} 100%)`;
+    return orb;
+  }
+  function refreshSwatches(){
+    const el=$('materialSwatches');el.replaceChildren();
+    for(const c of palettes.slice(0,10)){
+      const node=document.createElement('button');node.className='swatch'+(c.id===activeMaterial?' selected':'');node.title=c.name;node.setAttribute('aria-label',c.name);
+      node.append(swatchOrb(c));node.onclick=()=>{activeMaterial=c.id;syncMaterial();say(`Material selecionado: ${c.name}`)};el.append(node);
+    }
+  }
+  function library(){const grid=$('libraryGrid');grid.replaceChildren();
+    for(const c of palettes){const button=document.createElement('button');button.className='library-card';
+      const orb=document.createElement('span');orb.className='mini-orb';orb.style.background=`radial-gradient(circle at 30% 25%,${brighter(c.color,70)},${c.color} 60%,${brighter(c.color,-55)})`;
+      const name=document.createElement('span');name.className='library-name';name.textContent=c.name;
+      button.append(orb,name);button.title=c.category;button.onclick=()=>{activeMaterial=c.id;syncMaterial();$('libraryDialog').close();say(`Material: ${c.name}`)};
+      grid.append(button);
+    }
+  }
+  function applyMaterial(){if(!selected())return;selected().mat=activeMaterial;renderScene();say(`${currentMaterial().name} aplicado a ${selected().name}`)}
+  $('applyMaterial').onclick=applyMaterial;
+  $('openLibrary').onclick=$('selectMaterial').onclick=()=>{library();$('libraryDialog').showModal()};
+  $('editMaterial').onclick=()=>{$('materialColor').focus();say('Edite as propriedades PBR nos controles abaixo da prévia.');};
+  $('createMaterial').onclick=()=>{
+    const copy={...currentMaterial(),id:'custom'+Date.now(),name:'Material personalizado '+(palettes.filter(x=>x.category==='PERSONALIZADO').length+1),category:'PERSONALIZADO'};
+    palettes.unshift(copy);activeMaterial=copy.id;syncMaterial();say(`${copy.name} criado (somente nesta sessão HTML).`);
+  };
+  function project(p){return {x:p.x-pan.x-pivot.x,y:p.y-pan.y-pivot.y,z:p.z-pan.z-pivot.z}}
+  function proj(p,w,h){
+    const q=project(p),a=rad(yaw),e=rad(elevation),cos=Math.cos,sin=Math.sin;
+    const right=q.x*cos(a)+q.y*sin(a),depth=q.x*sin(a)*cos(e)-q.y*cos(a)*cos(e)+q.z*sin(e),up=q.z*cos(e)-sin(e)*(q.x*sin(a)-q.y*cos(a));
+    const perspective=orthographic?1:clamp(distance/(distance-depth*.45),.45,2.5);
+    const scale=Math.min(w,h)*.18*(8/Math.max(3,distance));
+    return {x:w/2+right*scale*perspective,y:h/2-up*scale*perspective,d:depth,scale:scale*perspective};
+  }
+  const mix=(a,b,t)=>vector(lerp(a.x,b.x,t),lerp(a.y,b.y,t),lerp(a.z,b.z,t));
+  function line3(ctx,p1,p2,w,h,color,width=1){const a=proj(p1,w,h),b=proj(p2,w,h);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}
+  function renderScene(){
+    if(!scene.isConnected)return;
+    const box=scene.getBoundingClientRect();if(box.width<10||box.height<10)return;
+    const dpr=Math.min(devicePixelRatio||1,2),w=box.width,h=box.height,pw=Math.round(w*dpr),ph=Math.round(h*dpr);
+    if(scene.width!==pw||scene.height!==ph){scene.width=pw;scene.height=ph;dirty=true}
+    ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+    const back=ctx.createLinearGradient(0,0,0,h);back.addColorStop(0,css('viewport-bg-top'));back.addColorStop(1,css('viewport-bg-bottom'));
+    ctx.fillStyle=back;ctx.fillRect(0,0,w,h);
+    if(showGrid){
+      for(let i=-12;i<=12;i++){
+        const col=i===0?css('viewport-grid-strong'):css('viewport-grid');
+        line3(ctx,vector(-12,i,0),vector(12,i,0),w,h,col,i===0?1.4:1);
+        line3(ctx,vector(i,-12,0),vector(i,12,0),w,h,col,i===0?1.4:1);
+      }
+    }
+    if($('floorVisible').checked){
+      const c=proj(vector(0,0,-.015),w,h);
+      const grd=ctx.createRadialGradient(c.x,c.y,2,c.x,c.y,Math.min(w,h)*.55);
+      grd.addColorStop(0,rgba(css('viewport-floor'),.30));grd.addColorStop(1,rgba(css('viewport-floor'),0));
+      ctx.fillStyle=grd;ctx.fillRect(0,0,w,h);
+    }
+    pointerCache=[];
+    for(const obj of objects.filter(o=>o.visible).map(o=>({...o,d:proj(o.position,w,h).d})).sort((a,b)=>a.d-b.d)){
+      const p=proj(obj.position,w,h),r=Math.max(5,obj.scale*p.scale*.53),mat=matFor(obj);
+      if(obj.kind==='camera'||obj.kind==='light'){
+        ctx.save();ctx.translate(p.x,p.y);ctx.strokeStyle=obj.kind==='camera'?css('axis-z'):css('viewport-highlight');
+        ctx.lineWidth=2;ctx.beginPath();if(obj.kind==='light'){ctx.arc(0,0,9,0,Math.PI*2);ctx.moveTo(-15,0);ctx.lineTo(15,0);ctx.moveTo(0,-15);ctx.lineTo(0,15)}
+        else{ctx.rect(-11,-8,18,16);ctx.moveTo(7,-6);ctx.lineTo(17,-13);ctx.lineTo(17,13);ctx.lineTo(7,6)}ctx.stroke();ctx.restore();
+        pointerCache.push({id:obj.id,x:p.x,y:p.y,r:18});continue;
+      }
+      if(obj.kind==='plane'){
+        const corners=[[-6,-6],[6,-6],[6,6],[-6,6]].map(v=>proj(vector(v[0],v[1],obj.position.z),w,h));
+        ctx.fillStyle=rgba(css('viewport-floor'),.24);ctx.beginPath();corners.forEach((v,i)=>i?ctx.lineTo(v.x,v.y):ctx.moveTo(v.x,v.y));ctx.closePath();ctx.fill();
+        if(obj.id===selectedId){ctx.strokeStyle=css('viewport-highlight');ctx.lineWidth=1.5;ctx.stroke();}
+        continue;
+      }
+      // Sombra ilustrativa e pintura procedural; sem renderização PBR real.
+      const floor=proj(vector(obj.position.x,obj.position.y,.05),w,h);
+      ctx.fillStyle=rgba(css('viewport-shadow'),.44*Number($('shadow').value)/60);ctx.beginPath();ctx.ellipse(floor.x+8,floor.y+6,r*(.82+Number($('softness').value)*.004),r*(.18+Number($('softness').value)*.0013),-.12,0,2*Math.PI);ctx.fill();
+      const power=Number($('envExposure').value)-52;const fill=Number($('fillLight').value)-38;const key=Number($('keyLight').value)-78;
+      const gr=ctx.createRadialGradient(p.x-r*.34,p.y-r*.45,r*.03,p.x+r*.15,p.y+r*.12,r*1.38);
+      gr.addColorStop(0,brighter(mat.color,85+power*.35+key*.25));gr.addColorStop(.32,brighter(mat.color,26+power*.3));gr.addColorStop(.76,brighter(mat.color,power*.18+fill*.1));gr.addColorStop(1,brighter(mat.color,-78+fill*.38));
+      if(obj.kind==='cube'||obj.kind==='cylinder'){ctx.save();ctx.translate(p.x,p.y);ctx.rotate(rad(obj.rotation));ctx.translate(-p.x,-p.y);}
+      if(obj.kind==='cube'){
+        const pts=[[-.7,-.68],[.67,-.68],[.75,.52],[0,.94],[-.75,.53]].map(v=>[p.x+v[0]*r,p.y+v[1]*r]);
+        ctx.fillStyle=brighter(mat.color,-35);ctx.beginPath();pts.forEach((v,i)=>i?ctx.lineTo(...v):ctx.moveTo(...v));ctx.closePath();ctx.fill();
+        ctx.fillStyle=mat.color;ctx.beginPath();ctx.moveTo(p.x-r*.72,p.y-r*.7);ctx.lineTo(p.x-r*.02,p.y-r*1.12);ctx.lineTo(p.x+r*.74,p.y-r*.69);ctx.lineTo(p.x,p.y-r*.28);ctx.closePath();ctx.fill();
+        ctx.fillStyle=gr;ctx.beginPath();ctx.moveTo(p.x-r*.72,p.y-r*.7);ctx.lineTo(p.x,p.y-r*.28);ctx.lineTo(p.x,p.y+r*.92);ctx.lineTo(p.x-r*.72,p.y+r*.55);ctx.closePath();ctx.fill();
+      }else if(obj.kind==='cylinder'){
+        ctx.fillStyle=gr;ctx.fillRect(p.x-r,p.y-r*.40,r*2,r*.85);
+        ctx.beginPath();ctx.ellipse(p.x,p.y-r*.40,r,r*.25,0,0,2*Math.PI);ctx.fillStyle=brighter(mat.color,25);ctx.fill();
+        ctx.beginPath();ctx.ellipse(p.x,p.y+r*.45,r,r*.24,0,0,Math.PI);ctx.fillStyle=brighter(mat.color,-47);ctx.fill();
+      }else{
+        ctx.fillStyle=gr;ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fill();
+      }
+      if(obj.kind==='cube'||obj.kind==='cylinder')ctx.restore();
+      if(obj.id===selectedId){
+        ctx.strokeStyle=css('viewport-highlight');ctx.lineWidth=2;ctx.setLineDash([5,4]);ctx.beginPath();ctx.ellipse(p.x,p.y,r+5,r+5,0,0,2*Math.PI);ctx.stroke();ctx.setLineDash([]);
+      }
+      pointerCache.push({id:obj.id,x:p.x,y:p.y,r});
+    }
+    ctx.font=`500 ${css('font-size-sm')} ${css('font')}`;ctx.textBaseline='bottom';ctx.fillStyle=css('viewport-text');
+    ctx.fillText('ESTÚDIO / BASE VISUAL',22,h-62);
+    dirty=false;
+  }
+  const focus=all=>{pan=vector(0,0,0);pivot=all?vector(0,0,1):{...selected()?.position||vector(0,0,1)};
+    if(all)distance=8;else distance=5;cameraInputs();renderScene();say(all?'Cena enquadrada':'Objeto enquadrado');};
+  $('focusBtn').onclick=()=>focus(false);$('fitAllBtn').onclick=()=>focus(true);
+  $('gridBtn').onclick=()=>{showGrid=!showGrid;renderScene();say(showGrid?'Grade ligada':'Grade oculta');};
+  scene.addEventListener('contextmenu',e=>e.preventDefault());
+  scene.addEventListener('pointerdown',e=>{scene.setPointerCapture(e.pointerId);drag={x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,mode:(e.button===1||e.shiftKey)?'pan':'orbit'};scene.classList.add('dragging')});
+  scene.addEventListener('pointermove',e=>{
+    if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;
+    if(drag.mode==='orbit'){yaw=(yaw+dx*.3+180)%360-180;elevation=clamp(elevation+dy*.23,-80,89);}else{
+      const step=dx*.013*(distance/8);pan.x-=step*Math.cos(rad(yaw));pan.y-=step*Math.sin(rad(yaw));pan.z+=dy*.013*(distance/8);
+    }
+    orthographic=false;$('projectionLabel').textContent='PERSPECTIVA';cameraInputs();renderScene();
+  });
+  scene.addEventListener('pointerup',e=>{
+    if(!drag)return;const traveled=Math.hypot(e.clientX-drag.startX,e.clientY-drag.startY);
+    if(traveled<7){const bounds=scene.getBoundingClientRect(),x=e.clientX-bounds.left,y=e.clientY-bounds.top;
+      const best=pointerCache.slice().reverse().find(p=>Math.hypot(p.x-x,p.y-y)<p.r+8);if(best)selectObject(best.id);}
+    drag=null;scene.classList.remove('dragging');
+  });
+  scene.addEventListener('pointercancel',()=>{drag=null;scene.classList.remove('dragging')});
+  scene.addEventListener('wheel',e=>{e.preventDefault();distance=clamp(distance*Math.exp(e.deltaY*.0012),3,18);cameraInputs();renderScene()},{passive:false});
+  $('cameraDistance').value=distance;
+  const transformKeys={g:'move',s:'scale',r:'rotate'};
+  function beginTransform(letter){const obj=selected();if(!obj||obj.kind==='plane')return;
+    transform={type:transformKeys[letter],axis:null,input:'',snapshot:{position:{...obj.position},scale:obj.scale,rotation:obj.rotation}};
+    updateTransformHint();
+  }
+  function updateTransformHint(){if(!transform){$('transformHint').hidden=true;return;}
+    $('transformHint').hidden=false;
+    $('transformHint').textContent=`${{move:'MOVER',scale:'ESCALAR',rotate:'ROTACIONAR'}[transform.type]} · ${transform.axis||'livre'} · ${transform.input||'mova o mouse ou digite valor'} · Enter confirma · Esc cancela`;
+  }
+  function applyTransform(){if(!transform)return;const obj=selected();const t=transform,n=parseFloat(t.input);
+    if(!Number.isFinite(n))return;
+    if(t.type==='scale')obj.scale=clamp(t.snapshot.scale*n,.03,15);
+    if(t.type==='rotate')obj.rotation=t.snapshot.rotation+n;
+    if(t.type==='move'){
+      const axis=(t.axis||'x').toLowerCase();obj.position[axis]=t.snapshot.position[axis]+n;
+    }
+    renderScene();
+  }
+  function finishTransform(cancel){if(!transform)return;const obj=selected();if(cancel){obj.position=transform.snapshot.position;obj.scale=transform.snapshot.scale;obj.rotation=transform.snapshot.rotation;}
+    transform=null;updateTransformHint();renderScene();say(cancel?'Transformação cancelada':'Transformação confirmada');}
+  document.addEventListener('keydown',e=>{
+    if(e.target.closest('input,textarea,select,[contenteditable]')||$$('dialog').some(d=>d.open))return;
+    if(e.key==='Escape'&&menuOpen){$('popoverMenu').hidden=true;menuOpen=null;$$('.menu-btn').forEach(x=>x.classList.remove('menu-open'));return;}
+    const k=e.key.toLowerCase();
+    if(transform){
+      if(k==='escape'){e.preventDefault();finishTransform(true);return}
+      if(k==='enter'){e.preventDefault();finishTransform(false);return}
+      if(['x','y','z'].includes(k)){transform.axis=k.toUpperCase();updateTransformHint();return}
+      if(k==='backspace'){transform.input=transform.input.slice(0,-1);applyTransform();updateTransformHint();return}
+      if(/[0-9.\-]/.test(k)&&k.length===1){transform.input+=k;applyTransform();updateTransformHint();return}
+      return;
+    }
+    if(k==='g'||k==='s'||k==='r'){e.preventDefault();beginTransform(k)}
+    if(k==='f'){e.preventDefault();focus(false)}
+    if(k==='home'){e.preventDefault();focus(true)}
+    if(k==='delete'){e.preventDefault();removeSelected()}
+    if(k==='a'&&e.shiftKey){e.preventDefault();showMenu('objeto',$('addObjectBtn'))}
+  });
+  function removeSelected(){const i=objects.findIndex(o=>o.id===selectedId);if(i<0)return;
+    const [item]=objects.splice(i,1);selectedId=objects[0]?.id||null;
+    populateOutliner();if(selected())selectObject(selectedId);renderScene();say(`${item.name} removido`);
+  }
+  function showMenu(which,from){
+    const lists={
+      arquivo:[['Novo projeto de demonstração','new'],['Exportar imagem PNG','export'],['Ajuda da base HTML','help']],
+      editar:[['Enquadrar objeto selecionado','focus'],['Remover objeto','remove']],
+      efeitos:[['Estúdio claro','preset-claro'],['Estúdio escuro','preset-escuro'],['Estúdio suave','preset-suave']],
+      objeto:[['Cubo','add-cube'],['Esfera','add-sphere'],['Cilindro','add-cylinder'],['Plano','add-plane'],['Luz','add-light'],['Câmera','add-camera']],
+      preferencias:[['Tema claro','theme-light'],['Tema escuro','theme-dark'],['Navegação e atalhos','help']],
+    };
+    const pop=$('popoverMenu');pop.replaceChildren();for(const [label,action]of (lists[which]||[])){
+      const b=document.createElement('button');b.textContent=label;b.addEventListener('click',()=>{
+        pop.hidden=true;menuOpen=null;$$('.menu-btn').forEach(x=>x.classList.remove('menu-open'));
+        if(action.startsWith('add-'))addObject(action.slice(4));
+        else if(action.startsWith('theme-'))setTheme(action.slice(6));
+        else if(action.startsWith('preset-'))applyPreset(action.slice(7));
+        else if(action==='focus')focus(false);
+        else if(action==='remove')removeSelected();
+        else if(action==='export')downloadImage();
+        else if(action==='help')$('helpDialog').showModal();
+        else if(action==='new'){objects.splice(0,objects.length);autoId=1;addObject('sphere');say('Nova demonstração criada.');}
+      });pop.append(b);
+    }
+    const box=from.getBoundingClientRect();pop.hidden=false;const width=pop.getBoundingClientRect().width;const height=pop.getBoundingClientRect().height;pop.style.left=`${clamp(box.left,6,Math.max(6,innerWidth-width-6))}px`;pop.style.top=`${box.bottom+height+6>innerHeight?Math.max(6,box.top-height-6):box.bottom+6}px`;menuOpen=which;$$('.menu-btn').forEach(x=>x.classList.toggle('menu-open',x.dataset.menu===which));
+  }
+  $$('[data-menu]').forEach(button=>button.onclick=()=>{
+    if(menuOpen===button.dataset.menu){$('popoverMenu').hidden=true;menuOpen=null;button.classList.remove('menu-open')}
+    else showMenu(button.dataset.menu,button);
+  });
+  document.addEventListener('pointerdown',e=>{if(!$('popoverMenu').hidden&&!e.target.closest('.popover,[data-menu],#addObjectBtn,#presetBtn')){
+    $('popoverMenu').hidden=true;menuOpen=null;$$('.menu-btn').forEach(x=>x.classList.remove('menu-open'));}});
+  $('addObjectBtn').onclick=()=>showMenu('objeto',$('addObjectBtn'));
+  $('presetBtn').onclick=()=>showMenu('efeitos',$('presetBtn'));
+  const presets={claro:{background:'#e8edf2',exposure:52,key:78,fill:38,rim:65,shadow:60,softness:52},
+    escuro:{background:'#1b2838',exposure:28,key:83,fill:12,rim:90,shadow:88,softness:28},
+    suave:{background:'#eee8dd',exposure:62,key:58,fill:64,rim:35,shadow:38,softness:83}};
+  function applyPreset(name){const p=presets[name];if(!p)return;
+    $('backgroundColor').value=p.background;
+    for(const [input,prop] of [['envExposure','exposure'],['keyLight','key'],['fillLight','fill'],['rimLight','rim'],['shadow','shadow'],['softness','softness']]){
+      $(input).value=p[prop];$(input+'Value').textContent=p[prop]+'%';
+    }
+    $$('[data-preset]').forEach(b=>b.classList.toggle('selected',b.dataset.preset===name));say(`Preset ${name} aplicado.`);renderScene();
+  }
+  $$('[data-preset]').forEach(b=>b.onclick=()=>applyPreset(b.dataset.preset));
+  function downloadImage(){
+    renderScene();const a=document.createElement('a');a.href=scene.toDataURL('image/png');a.download='RV_Studio_Viewport_Demonstracao.png';a.click();say('Imagem demonstrativa PNG exportada.');
+  }
+  $('renderTop').onclick=()=>{$('renderEngineName').textContent=$('engine').value;stats();$('renderDialog').showModal()};
+  $('exportPreview').onclick=()=>{downloadImage();$('renderDialog').close()};
+  $('helpTop').onclick=()=>$('helpDialog').showModal();
+  $$('[data-close]').forEach(b=>b.onclick=()=>$(b.dataset.close).close());
+  $('engine').addEventListener('change',()=>say(`Motor ${$('engine').value} selecionado para futura integração. Nenhum motor está conectado no HTML.`));
+  function resize(){materialPreview();renderScene()}
+  addEventListener('resize',resize);
+  const resizeObserver=new ResizeObserver(resize);resizeObserver.observe(scene);resizeObserver.observe(materialCanvas);
+  try{setTheme(localStorage.getItem('rv-layout-theme')||'light')}catch{setTheme('light')}
+  selectObject(1);syncMaterial();cameraInputs();stats();renderScene();
+  say('Layout demonstrativo pronto. Clique em um objeto ou experimente a navegação.');
+})();
+
+  </script>
+</body>
+</html>
