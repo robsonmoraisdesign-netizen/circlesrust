@@ -1,4 +1,4 @@
-use circlesrust::bvh::{Aabb,Bvh,MAX_LEAF_TRIANGLES};
+use circlesrust::bvh::{Aabb,Bvh};
 use circlesrust::kernel::geometry::{triangle_intersect,Ray,Triangle};
 use circlesrust::util::math::Vec3;
 
@@ -59,7 +59,6 @@ fn splits_keep_primitive_indices() {
     assert!(tree.stats().nodes>1);
     let r=ray(v(16.25,0.25,0.0),v(0.0,0.0,1.0));
     assert_eq!(tree.closest_hit(&r).unwrap().triangle_index,8);
-    assert!(MAX_LEAF_TRIANGLES>=1);
 }
 
 #[test]
