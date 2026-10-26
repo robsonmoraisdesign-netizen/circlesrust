@@ -1,0 +1,14 @@
+# Two disjoint panels using named materials
+mtllib colored.mtl
+v -1 -1 0
+v 0 -1 0
+v 0 1 0
+v -1 1 0
+v 0 -1 0
+v 1 -1 0
+v 1 1 0
+v 0 1 0
+usemtl matte_red
+f 1 2 3 4
+usemtl metallic_blue
+f 5 6 7 8
