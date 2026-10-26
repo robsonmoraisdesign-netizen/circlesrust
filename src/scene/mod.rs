@@ -1,3 +1,4 @@
+pub mod mtl;
 // SPDX-FileCopyrightText: 2011-2022 Blender Foundation
 // SPDX-License-Identifier: Apache-2.0
 // Procedural test scene to validate the Rust path integrator.
@@ -92,22 +93,38 @@ pub fn studio_scene()->Scene {
 }
 
 
-/// Import an OBJ asset into the test studio with a default neutral material.
-/// No MTL/texture graph is loaded in this phase.
-pub fn obj_studio_scene(mut mesh:obj::ObjMesh)->Scene{
+/// Render an OBJ in the same studio with an optional set of MTL materials.
+/// The original obj_studio_scene entry point keeps its neutral fallback.
+pub fn obj_studio_scene(mesh:obj::ObjMesh)->Scene{
+    obj_studio_scene_with_materials(mesh,&[])
+}
+/// Apply per-face material assignments by OBJ usemtl, with sane default for
+/// missing/unsupported library entries. All shading is still Rust CPU GGX.
+pub fn obj_studio_scene_with_materials(
+    mut mesh:obj::ObjMesh, named:&[mtl::NamedMaterial]
+)->Scene{
     mesh.fit_to_studio();
     let mut geometry=MeshBuilder::new();
     geometry.quad(v(-8.0,-8.0,-0.02),v(8.0,-8.0,-0.02),
         v(8.0,8.0,-0.02),v(-8.0,8.0,-0.02),0);
-    for (tri,normals) in mesh.triangles.into_iter().zip(mesh.corner_normals){
-        geometry.tris.push(tri);
-        geometry.materials.push(1);
-        geometry.normals.push(normals);
-    }
-    let materials=vec![
+    let mut materials=vec![
         Material::new(v(0.45,0.48,0.51),0.0,0.85),
         Material::new(v(0.66,0.68,0.72),0.2,0.32),
     ];
+    for item in named {
+        materials.push(item.material);
+    }
+    for ((tri,normals),face_material) in mesh.triangles.into_iter()
+        .zip(mesh.corner_normals)
+        .zip(mesh.face_materials){
+        let material_index=face_material.as_deref()
+            .and_then(|name|named.iter().position(|m|m.name==name))
+            .map(|index|index+2)
+            .unwrap_or(1);
+        geometry.tris.push(tri);
+        geometry.materials.push(material_index);
+        geometry.normals.push(normals);
+    }
     let light=RectLight{
         center:v(-0.50,-0.25,5.7),
         half_u:v(1.75,0.0,0.0),
