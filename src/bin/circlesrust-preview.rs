@@ -3,7 +3,8 @@
 //! Optional: --output, --width, --height, --samples, --bounces, --exposure
 use circlesrust::film::save_image;
 use circlesrust::integrator::{render_rgb_denoised, RenderSettings};
-use circlesrust::scene::{studio_scene,obj_studio_scene};
+use circlesrust::scene::{studio_scene,obj_studio_scene_with_materials};
+use circlesrust::scene::mtl::parse_mtl;
 use circlesrust::scene::obj::ObjMesh;
 use std::error::Error;
 use std::time::Instant;
@@ -13,7 +14,7 @@ fn usage(){
     println!("Usage:");
     println!("  circlesrust-preview [output.png|output.bmp] [width] [height] [samples]");
     println!("  circlesrust-preview --output render.png --width 1280 --height 720 --samples 128");
-    println!("Optional: --bounces 5 --exposure 1.2 --seed 17 --denoise 2 --obj model.obj");
+    println!("Optional: --bounces 5 --exposure 1.2 --seed 17 --denoise 2 --obj model.obj --mtl model.mtl");
     println!("Use --no-denoise to export the raw sample accumulation (0..5 denoise strength).");
     println!("Example: circlesrust-preview teste.png 960 540 64");
     println!("Note: CPU-only; not the complete Blender Cycles renderer or GPU path.");
@@ -24,6 +25,7 @@ fn main()->Result<(),Box<dyn Error>>{
     let mut output=String::from("circlesrust_render.png");
     let mut denoise_strength: u8=2;
     let mut obj_path: Option<String>=None;
+    let mut mtl_path: Option<String>=None;
     let mut positional=Vec::new();
     let args:Vec<String>=std::env::args().skip(1).collect();
     let mut i=0usize;
@@ -44,6 +46,7 @@ fn main()->Result<(),Box<dyn Error>>{
                 "--seed"=>s.seed=raw.parse()?,
                 "--denoise"=>denoise_strength=raw.parse()?,
                 "--obj"=>obj_path=Some(raw.clone()),
+                "--mtl"=>mtl_path=Some(raw.clone()),
                 _=>return Err(format!("Unknown option: {arg}").into()),
             }
         }else{
@@ -59,10 +62,31 @@ fn main()->Result<(),Box<dyn Error>>{
     s.validate()?;
 
     let start=Instant::now();
+    if obj_path.is_none() && mtl_path.is_some() {
+        return Err("--mtl requires --obj".into());
+    }
     let scene=if let Some(path)=obj_path {
         println!("Loading OBJ: {path}");
         let content=std::fs::read_to_string(&path)?;
-        obj_studio_scene(ObjMesh::parse(&content)?)
+        let mesh=ObjMesh::parse(&content)?;
+        let mut named=Vec::new();
+        if let Some(mtl)=mtl_path{
+            let materials=std::fs::read_to_string(&mtl)?;
+            named.extend(parse_mtl(&materials)?);
+        }else{
+            // Follow OBJ mtllib references relative to the model's directory.
+            // Missing file is a warning so untextured OBJ still renders.
+            let parent=std::path::Path::new(&path).parent().unwrap_or(std::path::Path::new("."));
+            for library in &mesh.material_libraries{
+                let asset=parent.join(library);
+                match std::fs::read_to_string(&asset){
+                    Ok(src)=>named.extend(parse_mtl(&src)?),
+                    Err(e)=>eprintln!("Warning: cannot load material library {}: {e}",asset.display()),
+                }
+            }
+        }
+        println!("Loaded {} OBJ faces and {} named materials",mesh.triangles.len(),named.len());
+        obj_studio_scene_with_materials(mesh,&named)
     }else{studio_scene()};
     let stats=scene.bvh.stats();
     println!("CirclesRust CPU path tracing: {}x{} / {} samples / {} bounces",

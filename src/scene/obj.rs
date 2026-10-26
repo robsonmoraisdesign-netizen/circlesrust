@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-//! Minimal Wavefront OBJ mesh import for the static-triangle CPU kernel.
+//! Wavefront OBJ static-triangle mesh import with material assignments.
 //! Supports vertex positions, optional vertex normals, triangles and polygon fans.
 //! This does not implement Cycles' complete mesh/attribute/scene import.
 use crate::kernel::geometry::Triangle;
@@ -9,6 +9,10 @@ use crate::util::math::Vec3;
 pub struct ObjMesh {
     pub triangles: Vec<Triangle>,
     pub corner_normals: Vec<Option<[Vec3;3]>>,
+    /// Material name for each valid triangulated face, if assigned by usemtl.
+    pub face_materials: Vec<Option<String>>,
+    /// mtllib references, for loading from the OBJ directory.
+    pub material_libraries: Vec<String>,
 }
 
 fn vertex_index(input:&str,size:usize,line:usize)->Result<usize,String>{
@@ -35,6 +39,9 @@ impl ObjMesh {
         let mut normals=Vec::new();
         let mut triangles=Vec::new();
         let mut corner_normals=Vec::new();
+        let mut face_materials=Vec::new();
+        let mut material_libraries=Vec::new();
+        let mut current_material:Option<String>=None;
         for (i,line) in src.lines().enumerate(){
             let number=i+1;
             let mut parts=line.split_whitespace();
@@ -43,6 +50,14 @@ impl ObjMesh {
                 "v"=>vertices.push(vector3(parts,number)?),
                 "vn"=>normals.push(vector3(parts,number)?.normalized()
                     .ok_or_else(||format!("line {number}: zero-length normal"))?),
+                "mtllib"=>{
+                    // Multiple MTL library filenames are supported for simple paths.
+                    material_libraries.extend(parts.filter(|p| !p.starts_with('#')).map(str::to_owned));
+                },
+                "usemtl"=>{
+                    let name=parts.collect::<Vec<_>>().join(" ");
+                    current_material=(!name.is_empty()).then_some(name);
+                },
                 "f"=>{
                     let mut indices=Vec::new();
                     for token in parts.take_while(|t| !t.starts_with('#')){
@@ -67,13 +82,14 @@ impl ObjMesh {
                         };
                         triangles.push(tri);
                         corner_normals.push(smooth);
+                        face_materials.push(current_material.clone());
                     }
                 },
                 _=>{}, // optional vt, mtllib, usemtl, groups etc. skipped for this milestone
             }
         }
         if triangles.is_empty(){return Err("OBJ has no valid triangles".into());}
-        Ok(Self{triangles,corner_normals})
+        Ok(Self{triangles,corner_normals,face_materials,material_libraries})
     }
 
     /// Uniformly fit imported geometry near the studio camera's focal point.

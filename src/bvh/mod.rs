@@ -3,8 +3,10 @@
 //! Static triangle CPU BVH2 implementation, adapted from:
 //! clonecircles/src/bvh/{build.cpp,bvh2.cpp,node.h,params.h}
 //! clonecircles/src/util/{boundbox.h,math_intersect.h}
-//! Limited to binary nodes and centroid median splitting. SAH spatial splits,
+//! Limited to binary nodes with binned SAH splitting. Spatial splits,
 //! motion, instances, hair/curves, packed GPU layouts and refitting are TODO.
+
+mod sah;
 
 use crate::kernel::geometry::{triangle_intersect, Intersection, Ray, Triangle};
 use crate::util::math::Vec3;
@@ -106,16 +108,24 @@ impl Bvh {
         self.nodes.push(Node{bounds,kind:Kind::Leaf{start,end}});
         if end-start<=MAX_LEAF_TRIANGLES || depth>=64{return here;}
 
-        let extent=centroids.max-centroids.min;
-        let axis=if extent.x>=extent.y && extent.x>=extent.z{0}
-            else if extent.y>=extent.z{1}else{2};
-        let tris=&self.triangles;
-        self.order[start..end].sort_unstable_by(|a,b|{
-            tris[*a].centroid().axis(axis)
-                .total_cmp(&tris[*b].centroid().axis(axis))
-                .then_with(||a.cmp(b))
-        });
-        let mid=start+(end-start)/2;
+        // Cycles-style object binning with surface-area heuristic.
+        // For coincident centers/empty bins, deterministic median fallback.
+        let count=end-start;
+        let mid=if let Some(left_count)=
+            sah::partition(&self.triangles,&mut self.order[start..end],centroids){
+            start+left_count
+        }else{
+            let extent=centroids.max-centroids.min;
+            let axis=if extent.x>=extent.y && extent.x>=extent.z{0}
+                else if extent.y>=extent.z{1}else{2};
+            let tris=&self.triangles;
+            self.order[start..end].sort_unstable_by(|a,b|{
+                tris[*a].centroid().axis(axis)
+                    .total_cmp(&tris[*b].centroid().axis(axis))
+                    .then_with(||a.cmp(b))
+            });
+            start+count/2
+        };
         let left=self.build_node(start,mid,depth+1);
         let right=self.build_node(mid,end,depth+1);
         self.nodes[here].kind=Kind::Branch{left,right};

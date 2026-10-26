@@ -4,6 +4,7 @@ on:
     branches:
       - main
       - feat/cycles-shading-mis-denoise
+      - feat/cycles-sah-mtl-materials
   pull_request:
 jobs:
   test:
@@ -28,6 +29,8 @@ jobs:
         run: cargo run --release --bin circlesrust-preview -- preview.bmp 48 32 2 --no-denoise
       - name: Smoke test OBJ import
         run: cargo run --release --bin circlesrust-preview -- imported_obj.png 96 64 4 --obj tests/fixtures/pyramid.obj
+      - name: Smoke test OBJ MTL multi-material import
+        run: cargo run --release --bin circlesrust-preview -- imported_materials.png 180 120 8 --obj tests/fixtures/colored.obj --mtl tests/fixtures/colored.mtl
       - name: Render Full HD evaluation with smooth normals and MIS (Windows)
         if: runner.os == 'Windows'
         run: cargo run --release --bin circlesrust-preview -- avaliacao_fullhd_mis_denoise_1920x1080_64spp.png 1920 1080 64 --denoise 2
@@ -48,6 +51,7 @@ jobs:
             comparacao_sem_denoise.png
             comparacao_com_denoise.png
             imported_obj.png
+            imported_materials.png
             preview.png
             preview.bmp
             RENDER_QUALIDADE_WINDOWS.bat
