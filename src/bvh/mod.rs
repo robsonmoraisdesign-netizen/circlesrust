@@ -78,6 +78,7 @@ pub struct BvhStats {
 }
 
 /// Binary hierarchy for independent static triangles (not a full Cycles BVH).
+#[derive(Clone)]
 pub struct Bvh {
     triangles:Vec<Triangle>,
     order:Vec<usize>,
