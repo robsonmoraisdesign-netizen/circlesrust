@@ -1,0 +1,7 @@
+newmtl polished_test
+Kd 0.65 0.75 0.85
+Pm 0
+Pr 0.8
+map_Pm metallic.ppm
+map_Pr roughness.ppm
+norm angled-normal.ppm

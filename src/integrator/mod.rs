@@ -10,7 +10,8 @@ use crate::bvh::Bvh;
 use crate::kernel::geometry::{Ray, Triangle};
 use crate::util::hash::hash_uint3;
 use crate::util::math::Vec3;
-use crate::shader::{ShaderGraph,Uv};
+use crate::shader::{ShaderGraph,ImageTexture,Uv};
+use crate::shader::surface::SurfaceMaps;
 
 fn rgb_mul(a: Vec3, b: Vec3) -> Vec3 {
     Vec3::new(a.x * b.x, a.y * b.y, a.z * b.z)
@@ -100,9 +101,13 @@ pub struct Scene {
     pub corner_uvs: Vec<Option<[Uv;3]>>,
     /// One optional native Rust color shader graph for each material slot.
     pub shader_graphs: Vec<Option<ShaderGraph>>,
+    /// Scalar roughness, metallic and tangent-space normal maps by material.
+    pub surface_maps: Vec<SurfaceMaps>,
     pub materials: Vec<Material>,
     pub light: RectLight,
     pub sky_strength: f32,
+    /// Equirectangular environment map, optional HDR linear radiance.
+    pub environment_map: Option<ImageTexture>,
 }
 impl Scene {
     pub fn new(triangles: Vec<Triangle>, triangle_materials: Vec<usize>,
@@ -123,8 +128,10 @@ impl Scene {
             corner_normals: vec![None; triangle_materials.len()],
             corner_uvs: vec![None; triangle_materials.len()],
             shader_graphs: vec![None; materials.len()],
+            surface_maps: vec![SurfaceMaps::default();materials.len()],
             triangle_materials, materials,
             light, sky_strength: 1.0,
+            environment_map: None,
         })
     }
     /// Install optional corner normals, preserving geometric normals on flat faces.
@@ -166,13 +173,42 @@ impl Scene {
         self.shader_graphs=graphs;
         Ok(())
     }
+    pub fn set_environment_map(&mut self,map:ImageTexture){
+        self.environment_map=Some(map);
+    }
+
+    pub fn set_surface_maps(
+        &mut self,maps:Vec<SurfaceMaps>
+    )->Result<(),&'static str>{
+        if maps.len()!=self.materials.len(){return Err("Surface maps/material slot mismatch");}
+        self.surface_maps=maps;
+        Ok(())
+    }
+    /// Texture-aware shading normal for rays and denoiser guide buffer.
+    pub fn mapped_shading_normal(&self,triangle:usize,u:f32,v:f32)->Vec3{
+        let base=self.shading_normal(triangle,u,v);
+        if let (Some(corners),Some(maps))=(
+            self.corner_uvs[triangle],
+            self.surface_maps.get(self.triangle_materials[triangle]),
+        ){
+            let uv=Uv::interpolate(corners,u,v);
+            return maps.mapped_normal(
+                self.bvh.triangle(triangle).expect("valid triangle"),
+                corners,uv,base
+            ).unwrap_or(base);
+        }
+        base
+    }
+
     fn material_for(&self,triangle:usize,b:f32,c:f32)->Material {
         let index=self.triangle_materials[triangle];
         let mut material=self.materials[index];
-        if let (Some(graph),Some(corners))=
-            (&self.shader_graphs[index],self.corner_uvs[triangle]) {
+        if let Some(corners)=self.corner_uvs[triangle] {
             let uv=Uv::interpolate(corners,b,c);
-            material.base_color=graph.evaluate(uv);
+            if let Some(graph)=&self.shader_graphs[index] {
+                material.base_color=graph.evaluate(uv);
+            }
+            material=self.surface_maps[index].resolved_material(material,uv);
         }
         material
     }
@@ -310,7 +346,11 @@ fn bsdf_sample(material:Material,n:Vec3,view:Vec3,rng:&mut Rng)->Option<(Vec3,Ve
     Some((incoming,f,cos/pdf,pdf))
 }
 
-fn environment(direction: Vec3, sky_strength: f32) -> Vec3 {
+fn environment(scene:&Scene,direction:Vec3)->Vec3 {
+    if let Some(map)=&scene.environment_map{
+        return map.sample_latlong(direction)*scene.sky_strength;
+    }
+    let sky_strength=scene.sky_strength;
     let t = (direction.z*0.5 + 0.5).clamp(0.0,1.0);
     let lower = Vec3::new(0.15,0.16,0.18);
     let upper = Vec3::new(0.42,0.55,0.80);
@@ -357,7 +397,7 @@ fn direct_environment(scene:&Scene,point:Vec3,n:Vec3,ng:Vec3,
     }
     let (f,bsdf_pdf)=bsdf_eval(material,n,view,direction);
     let mis=power_heuristic(env_pdf,bsdf_pdf);
-    rgb_mul(f,environment(direction,scene.sky_strength))*(cosine*mis/env_pdf)
+    rgb_mul(f,environment(scene,direction))*(cosine*mis/env_pdf)
 }
 fn trace(scene:&Scene,first:Ray,max_bounces:u32,rng:&mut Rng)->Vec3{
     let mut throughput=Vec3::new(1.0,1.0,1.0);
@@ -379,12 +419,12 @@ fn trace(scene:&Scene,first:Ray,max_bounces:u32,rng:&mut Rng)->Vec3{
         let Some(hit)=mesh_hit else {
             let env_pdf=previous_normal.dot(ray.direction).max(0.0)/PI;
             let weight=if bounce==0{1.0}else{power_heuristic(previous_bsdf_pdf,env_pdf)};
-            radiance=radiance+rgb_mul(throughput,environment(ray.direction,scene.sky_strength))*weight;
+            radiance=radiance+rgb_mul(throughput,environment(scene,ray.direction))*weight;
             break;
         };
         let material=scene.material_for(hit.triangle_index,hit.u,hit.v);
         let mut geometric=scene.bvh.triangle(hit.triangle_index).expect("valid triangle id").normal();
-        let mut normal=scene.shading_normal(hit.triangle_index,hit.u,hit.v);
+        let mut normal=scene.mapped_shading_normal(hit.triangle_index,hit.u,hit.v);
         if geometric.dot(ray.direction)>0.0 {
             geometric = -geometric;
             normal = -normal;
