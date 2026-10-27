@@ -61,7 +61,7 @@ pub fn solid_preview(
                             let mut normal=scene.mapped_shading_normal(
                                 hit.triangle_index,hit.u,hit.v
                             );
-                            if normal.dot(direction)>0.0{normal=-normal;}
+                            if normal.dot(direction)>0.0{normal = -normal;}
                             let to_light=(scene.light.center-hit.point(&ray))
                                 .normalized().unwrap_or(Vec3::new(0.0,0.0,1.0));
                             let lambert=normal.dot(to_light).max(0.0);
