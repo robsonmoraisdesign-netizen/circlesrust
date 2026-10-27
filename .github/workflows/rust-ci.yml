@@ -9,6 +9,7 @@ on:
       - feat/pbr-texture-channels-normals
       - feat/native-rust-desktop-studio
       - feat/interactive-preview-realtime-ui
+      - feat/pan-navigation-fast-preview
   pull_request:
 jobs:
   test:

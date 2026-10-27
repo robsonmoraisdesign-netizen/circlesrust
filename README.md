@@ -2,6 +2,12 @@
 
 **Motor original usado como referência:** [clonecircles](https://github.com/robsonmoraisdesign-netizen/clonecircles), branch `main`, commit `3eb35f85996baa6c1b2e19bf297b22745c85e321`. O repositório original é C/C++. Aqui a conversão é incremental: **ainda não existe um port completo do Cycles**.
 
+## Pan e navegação responsiva (novo)
+
+- Arraste com **botão do meio** para orbitar, **Shift + botão do meio** para pan e **roda** para zoom.
+- Também é possível escolher as ferramentas **Orbitar/Pan** e arrastar com o botão esquerdo.
+- Pré-visualização CPU reduz trabalho obsoleto com cancelamento, espera curta entre alterações e amostragem progressiva mais leve; **o render final mantém os parâmetros originais**.
+
 ## Nova interface: Ambiente 3D, Tempo real e Render final
 
 A interface nativa Rust agora oferece três modos:
