@@ -18,6 +18,7 @@ fn usage(){
     println!("  circlesrust-preview [output.png|output.bmp] [width] [height] [samples]");
     println!("  circlesrust-preview --output render.png --width 1280 --height 720 --samples 128");
     println!("Optional: --bounces 5 --exposure 1.2 --seed 17 --denoise 2 --obj model.obj --mtl model.mtl");
+    println!("Optional environment: --environment studio.hdr --env-strength 1.0 (also PNG/JPEG).");
     println!("Use --no-denoise to export the raw sample accumulation (0..5 denoise strength).");
     println!("Example: circlesrust-preview teste.png 960 540 64");
     println!("Note: CPU-only; not the complete Blender Cycles renderer or GPU path.");
@@ -46,6 +47,8 @@ fn main()->Result<(),Box<dyn Error>>{
     let mut denoise_strength: u8=2;
     let mut obj_path: Option<String>=None;
     let mut mtl_path: Option<String>=None;
+    let mut env_path: Option<String>=None;
+    let mut env_strength:Option<f32>=None;
     let mut positional=Vec::new();
     let args:Vec<String>=std::env::args().skip(1).collect();
     let mut i=0usize;
@@ -67,6 +70,8 @@ fn main()->Result<(),Box<dyn Error>>{
                 "--denoise"=>denoise_strength=raw.parse()?,
                 "--obj"=>obj_path=Some(raw.clone()),
                 "--mtl"=>mtl_path=Some(raw.clone()),
+                "--environment"=>env_path=Some(raw.clone()),
+                "--env-strength"=>env_strength=Some(raw.parse()?),
                 _=>return Err(format!("Unknown option: {arg}").into()),
             }
         }else{
@@ -85,7 +90,7 @@ fn main()->Result<(),Box<dyn Error>>{
     if obj_path.is_none() && mtl_path.is_some() {
         return Err("--mtl requires --obj".into());
     }
-    let scene=if let Some(path)=obj_path {
+    let mut scene=if let Some(path)=obj_path {
         println!("Loading OBJ: {path}");
         let content=std::fs::read_to_string(&path)?;
         let mesh=ObjMesh::parse(&content)?;
@@ -135,6 +140,17 @@ fn main()->Result<(),Box<dyn Error>>{
         scene.set_surface_maps(surface_maps)?;
         scene
     }else{studio_scene()};
+    if let Some(strength)=env_strength{
+        if !strength.is_finite() || strength<0.0 || strength>1000.0{
+            return Err("--env-strength must be finite in 0..=1000".into());
+        }
+        scene.sky_strength=strength;
+    }
+    if let Some(file)=env_path{
+        let map=ImageTexture::load_environment(&file)?;
+        scene.set_environment_map(map);
+        println!("Environment loaded: {file}");
+    }
     let stats=scene.bvh.stats();
     println!("CirclesRust CPU path tracing: {}x{} / {} samples / {} bounces",
         s.width,s.height,s.samples,s.max_bounces);
@@ -145,8 +161,8 @@ fn main()->Result<(),Box<dyn Error>>{
     let rgb=render_rgb_denoised(&scene,s,denoise_strength)?;
     save_image(&output,&rgb,s.width,s.height)?;
     println!("Saved {output} in {:.2}s",start.elapsed().as_secs_f64());
-    println!("Features: UV albedo/roughness/metallic/tangent-normal maps, area/environment MIS, indirect bounces, denoise.");
+    println!("Features: UV PBR maps, LDR/HDR panoramic environment, area/environment MIS, indirect bounces, denoise.");
     println!("Denoise strength: {denoise_strength}; this is not OIDN/OptiX AI denoising.");
-    println!("Limitations: CPU-only; simplified GGX and node subset, no HDRI, full Cycles Principled, GPU or OIDN.");
+    println!("Limitations: CPU-only; approximate environment sampling, no Cycles Principled/OSL, GPU or OIDN.");
     Ok(())
 }
