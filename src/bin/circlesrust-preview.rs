@@ -5,7 +5,8 @@ use circlesrust::film::save_image;
 use circlesrust::integrator::{render_rgb_denoised, RenderSettings};
 use circlesrust::scene::{studio_scene,obj_studio_scene_with_materials};
 use circlesrust::scene::mtl::{parse_mtl,NamedMaterial};
-use circlesrust::shader::{ImageTexture,ShaderGraph};
+use circlesrust::shader::{ImageTexture,ShaderGraph,TextureColorSpace};
+use circlesrust::shader::surface::SurfaceMaps;
 use circlesrust::scene::obj::ObjMesh;
 use std::error::Error;
 use std::time::Instant;
@@ -28,8 +29,11 @@ fn mtl_from_path(path:&Path)->Result<Vec<NamedMaterial>,Box<dyn Error>>{
     let mut named=parse_mtl(&data)?;
     let base=path.parent().unwrap_or(Path::new("."));
     for m in &mut named{
-        if let Some(source)=m.map_kd.as_mut(){
-            let joined=base.join(&source);
+        for source in [
+            &mut m.map_kd, &mut m.map_pr,
+            &mut m.map_pm, &mut m.map_normal,
+        ].into_iter().flatten(){
+            let joined=base.join(&*source);
             *source=joined.to_string_lossy().into_owned();
         }
     }
@@ -104,6 +108,7 @@ fn main()->Result<(),Box<dyn Error>>{
         println!("Loaded {} OBJ faces and {} named materials",mesh.triangles.len(),named.len());
         // Slot 0: ground; slot 1: neutral fallback; named materials start at 2.
         let mut graphs=vec![None,None];
+        let mut surface_maps=vec![SurfaceMaps::default(),SurfaceMaps::default()];
         for item in &named{
             let graph=match &item.map_kd{
                 Some(path)=>{
@@ -114,9 +119,20 @@ fn main()->Result<(),Box<dyn Error>>{
                 None=>None,
             };
             graphs.push(graph);
+            let load_map=|path:&Option<String>|->Result<Option<ImageTexture>,String>{
+                path.as_ref().map(|file|ImageTexture::load_with_space(
+                    file,TextureColorSpace::NonColor
+                )).transpose()
+            };
+            surface_maps.push(SurfaceMaps{
+                roughness:load_map(&item.map_pr)?,
+                metallic:load_map(&item.map_pm)?,
+                normal:load_map(&item.map_normal)?,
+            });
         }
         let mut scene=obj_studio_scene_with_materials(mesh,&named);
         scene.set_shader_graphs(graphs)?;
+        scene.set_surface_maps(surface_maps)?;
         scene
     }else{studio_scene()};
     let stats=scene.bvh.stats();
@@ -129,8 +145,8 @@ fn main()->Result<(),Box<dyn Error>>{
     let rgb=render_rgb_denoised(&scene,s,denoise_strength)?;
     save_image(&output,&rgb,s.width,s.height)?;
     println!("Saved {output} in {:.2}s",start.elapsed().as_secs_f64());
-    println!("Features: UV-based texture shaders (PNG/JPEG/PNM), area/environment MIS, indirect bounces, denoise.");
+    println!("Features: UV albedo/roughness/metallic/tangent-normal maps, area/environment MIS, indirect bounces, denoise.");
     println!("Denoise strength: {denoise_strength}; this is not OIDN/OptiX AI denoising.");
-    println!("Limitations: CPU-only; small color-node subset, no full Cycles shader graph, normal maps, GPU or OIDN.");
+    println!("Limitations: CPU-only; simplified GGX and node subset, no HDRI, full Cycles Principled, GPU or OIDN.");
     Ok(())
 }
