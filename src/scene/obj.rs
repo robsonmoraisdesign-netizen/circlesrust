@@ -13,6 +13,9 @@ pub struct ObjMesh {
     pub corner_uvs: Vec<Option<[Uv;3]>>,
     /// Material name for each valid triangulated face, if assigned by usemtl.
     pub face_materials: Vec<Option<String>>,
+    /// Per-triangle Wavefront `o` or `g` name, preserving source object groups.
+    pub face_groups: Vec<String>,
+    pub group_names: Vec<String>,
     /// mtllib references, for loading from the OBJ directory.
     pub material_libraries: Vec<String>,
 }
@@ -44,6 +47,9 @@ impl ObjMesh {
         let mut corner_normals=Vec::new();
         let mut corner_uvs=Vec::new();
         let mut face_materials=Vec::new();
+        let mut face_groups=Vec::new();
+        let mut current_group=String::from("Objeto");
+        let mut group_names=vec![current_group.clone()];
         let mut material_libraries=Vec::new();
         let mut current_material:Option<String>=None;
         for (i,line) in src.lines().enumerate(){
@@ -66,6 +72,13 @@ impl ObjMesh {
                 "mtllib"=>{
                     // Multiple MTL library filenames are supported for simple paths.
                     material_libraries.extend(parts.filter(|p| !p.starts_with('#')).map(str::to_owned));
+                },
+                "o"|"g"=>{
+                    let name=parts.take_while(|p|!p.starts_with('#')).collect::<Vec<_>>().join(" ");
+                    current_group=if name.is_empty(){"Objeto".into()}else{name};
+                    if !group_names.contains(&current_group){
+                        group_names.push(current_group.clone());
+                    }
                 },
                 "usemtl"=>{
                     let name=parts.collect::<Vec<_>>().join(" ");
@@ -104,13 +117,14 @@ impl ObjMesh {
                         corner_normals.push(smooth);
                         corner_uvs.push(tex);
                         face_materials.push(current_material.clone());
+                        face_groups.push(current_group.clone());
                     }
                 },
                 _=>{}, // optional vt, mtllib, usemtl, groups etc. skipped for this milestone
             }
         }
         if triangles.is_empty(){return Err("OBJ has no valid triangles".into());}
-        Ok(Self{triangles,corner_normals,corner_uvs,face_materials,material_libraries})
+        Ok(Self{triangles,corner_normals,corner_uvs,face_materials,face_groups,group_names,material_libraries})
     }
 
     /// Uniformly fit imported geometry near the studio camera's focal point.

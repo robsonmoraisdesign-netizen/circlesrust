@@ -93,9 +93,16 @@ pub fn studio_scene()->Scene {
         half_v:v(0.0,-1.25,0.0),
         radiance:v(9.0,8.2,7.4),
     };
+    let objects=mesh.materials.iter().map(|m|match m{
+        0=>0,1=>1,2=>2,4=>3,3=>4,_=>0
+    }).collect();
     let mut scene = Scene::new(mesh.tris,mesh.materials,materials,light)
         .expect("studio scene mesh must be valid");
     scene.set_corner_normals(mesh.normals).expect("valid generated normals");
+    scene.set_objects(objects,vec![
+        "Piso".into(),"Fundo".into(),"Cubo cerâmico".into(),
+        "Cubo metal".into(),"Esfera azul".into()
+    ]).expect("valid studio object mapping");
     scene.set_corner_uvs(mesh.uvs).expect("valid generated UVs");
     scene
 }
@@ -122,10 +129,15 @@ pub fn obj_studio_scene_with_materials(
     for item in named {
         materials.push(item.material);
     }
-    for (((tri,normals),uvs),face_material) in mesh.triangles.into_iter()
+    let group_names=mesh.group_names.clone();
+    let names=std::iter::once("Piso".to_owned())
+        .chain(group_names.iter().cloned()).collect::<Vec<_>>();
+    let mut objects=vec![0usize;geometry.tris.len()];
+    for ((((tri,normals),uvs),face_material),face_group) in mesh.triangles.into_iter()
         .zip(mesh.corner_normals)
         .zip(mesh.corner_uvs)
-        .zip(mesh.face_materials){
+        .zip(mesh.face_materials)
+        .zip(mesh.face_groups){
         let material_index=face_material.as_deref()
             .and_then(|name|named.iter().position(|m|m.name==name))
             .map(|index|index+2)
@@ -134,6 +146,8 @@ pub fn obj_studio_scene_with_materials(
         geometry.materials.push(material_index);
         geometry.normals.push(normals);
         geometry.uvs.push(uvs);
+        let group_index=group_names.iter().position(|g|g==&face_group).unwrap_or(0);
+        objects.push(group_index+1);
     }
     let light=RectLight{
         center:v(-0.50,-0.25,5.7),
@@ -145,5 +159,6 @@ pub fn obj_studio_scene_with_materials(
         .expect("imported OBJ scene is valid");
     scene.set_corner_normals(geometry.normals).expect("OBJ generated normals are valid");
     scene.set_corner_uvs(geometry.uvs).expect("OBJ generated UVs are valid");
+    scene.set_objects(objects,names).expect("OBJ object mapping is valid");
     scene
 }
