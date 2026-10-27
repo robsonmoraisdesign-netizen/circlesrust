@@ -6,5 +6,16 @@ description = "Incremental Rust port of Blender Cycles components"
 license = "Apache-2.0"
 publish = false
 
+[features]
+default = []
+desktop-ui = ["dep:eframe"]
+
+[[bin]]
+name = "circlesrust-studio"
+path = "src/bin/circlesrust-studio.rs"
+required-features = ["desktop-ui"]
+
 [dependencies]
+eframe = { version = "0.32.3", optional = true, default-features = false, features = ["default_fonts", "glow", "x11"] }
+
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "pnm", "hdr"] }
