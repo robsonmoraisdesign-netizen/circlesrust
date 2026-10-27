@@ -5,3 +5,6 @@ edition = "2021"
 description = "Incremental Rust port of Blender Cycles components"
 license = "Apache-2.0"
 publish = false
+
+[dependencies]
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "pnm"] }
