@@ -38,7 +38,7 @@ impl ImageTexture {
         if size==0 || pixels.len()!=size*3 || width>16384 || height>16384 {
             return Err("Invalid texture dimensions or pixel buffer".to_owned());
         }
-        let converted=pixels.chunks_exact(3)
+        let converted=pixels.as_chunks::<3>().0.iter()
             .map(|p| Vec3::new(linear(p[0]),linear(p[1]),linear(p[2]))).collect();
         Ok(Self{width:width as usize,height:height as usize,pixels:converted})
     }
