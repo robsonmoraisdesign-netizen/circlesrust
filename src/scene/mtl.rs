@@ -8,6 +8,7 @@ use crate::util::math::Vec3;
 pub struct NamedMaterial {
     pub name:String,
     pub material:Material,
+    pub map_kd: Option<String>,
 }
 fn finite_unit(text:&str,position:usize,line:usize)->Result<f32,String>{
     let value=text.split_whitespace().nth(position)
@@ -33,9 +34,16 @@ pub fn parse_mtl(text:&str)->Result<Vec<NamedMaterial>,String>{
             current=Some(NamedMaterial{
                 name:arg.to_owned(),
                 material:Material::new(Vec3::new(0.72,0.72,0.72),0.0,0.6),
+                map_kd:None,
             });
         }else if let Some(item)=current.as_mut(){
             match tag{
+                "map_Kd"=>{
+                    // Basic MTL syntax: a single relative image path, including spaces.
+                    // Advanced map options (-o/-s/-clamp) are not yet supported.
+                    if arg.is_empty(){return Err(format!("line {line}: missing map_Kd path"));}
+                    item.map_kd=Some(arg.to_owned());
+                },
                 "Kd"=>{
                     let x=finite_unit(arg,0,line)?;
                     let y=finite_unit(arg,1,line)?;
