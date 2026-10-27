@@ -36,7 +36,7 @@ jobs:
       - name: Smoke test textured OBJ using shader graphs
         run: cargo run --release --bin circlesrust-preview -- imported_textured.png 480 320 24 --obj tests/fixtures/textured.obj --mtl tests/fixtures/textured.mtl --denoise 2
       - name: Smoke test PBR roughness metallic and tangent-normal maps
-        run: cargo run --release --bin circlesrust-preview -- imported_pbr.png 480 320 24 --obj tests/fixtures/textured.obj --mtl tests/fixtures/pbr_textures.mtl --denoise 2
+        run: cargo run --release --bin circlesrust-preview -- imported_pbr.png 480 320 24 --obj tests/fixtures/pbr_textures.obj --mtl tests/fixtures/pbr_textures.mtl --denoise 2
       - name: Render Full HD evaluation with smooth normals and MIS (Windows)
         if: runner.os == 'Windows'
         run: cargo run --release --bin circlesrust-preview -- avaliacao_fullhd_mis_denoise_1920x1080_64spp.png 1920 1080 64 --denoise 2

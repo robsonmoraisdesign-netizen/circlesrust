@@ -1,0 +1,12 @@
+# Material and UV regression asset
+mtllib pbr_textures.mtl
+v -1.2 -1.2 0.0
+v 1.2 -1.2 0.0
+v 1.2 1.2 0.0
+v -1.2 1.2 0.0
+vt 0 0
+vt 1 0
+vt 1 1
+vt 0 1
+usemtl polished_test
+f 1/1 2/2 3/3 4/4
