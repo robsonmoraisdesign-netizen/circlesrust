@@ -2,6 +2,29 @@
 
 **Motor original usado como referência:** [clonecircles](https://github.com/robsonmoraisdesign-netizen/clonecircles), branch `main`, commit `3eb35f85996baa6c1b2e19bf297b22745c85e321`. O repositório original é C/C++. Aqui a conversão é incremental: **ainda não existe um port completo do Cycles**.
 
+## Fase atual — mapas de rugosidade, metalicidade e normais em Rust
+
+A versão nova aceita mapas PBR independentes referenciados no MTL: map_Pr para rugosidade, map_Pm para metalicidade e norm/map_Kn para normais tangenciais OpenGL (+Y). Os canais são decodificados em espaço **NonColor**, sem aplicação incorreta da curva de gamma sRGB. O canal vermelho de cada mapa escalar substitui a constante de roughness/metalness, enquanto o mapa de normal altera a direção usada pela BSDF.
+
+Exemplo de MTL:
+
+~~~mtl
+newmtl metal_escovado
+Kd 0.75 0.72 0.62
+map_Kd cor.png
+map_Pr rugosidade.png
+map_Pm metalicidade.png
+norm normal_opengl.png
+~~~
+
+A localização das imagens é relativa ao MTL; o objeto precisa de coordenadas UV válidas. A geometria permanece inalterada, e o normal map **não** é deslocamento real nem height map. bump/map_Bump não é interpretado como normal tangent-space.
+
+~~~powershell
+.\circlesrust-preview.exe Modelo_PBR.png 1280 720 128 --obj modelo.obj --denoise 3
+~~~
+
+**Limites:** o motor permanece CPU; os mapas são 8 bits RGB e não há 16-bit/float, múltiplos UV sets, UDIM, mipmaps, filtragem anisotrópica, Principled completo ou backends GPU. As funcionalidades descritas são uma implementação própria em Rust guiada pelo Cycles, não uma cópia direta de todo o motor.
+
 ## Nova etapa — UV, texturas e nós de cor nativos em Rust
 
 Agora a malha OBJ preserva coordenadas UV (vt e f v/vt/vn) e os arquivos MTL podem referenciar mapas de cor map_Kd. Texturas PNG, JPEG e PNM são carregadas em memória, convertidas de sRGB para RGB linear e filtradas bilinearmente nas coordenadas UV de cada interseção.
