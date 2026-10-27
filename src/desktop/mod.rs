@@ -173,7 +173,8 @@ impl StudioApp {
         self.solid_busy=true;
         std::thread::spawn(move||{
             let result=preview::solid_preview_cancellable_highlight(
-                &snapshot.scene,camera,w,h,&epoch,revision,selected,tint
+                &snapshot.scene,camera,w,h,&epoch,revision,
+                preview::SelectionHighlight{object_id:selected,tint}
             ).map(|bytes|(bytes,w,h)).map_err(str::to_owned);
             let _=tx.send(Report{job:Job::Solid,revision,output:None,result});
         });

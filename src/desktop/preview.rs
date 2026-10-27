@@ -14,6 +14,12 @@ fn rgb(x:Vec3)->[u8;3]{
     let to_byte=|v:f32| ((v.clamp(0.0,1.0).powf(1.0/2.2))*255.0+0.5) as u8;
     [to_byte(x.x),to_byte(x.y),to_byte(x.z)]
 }
+/// Selection metadata and appearance, sourced from the central UI theme.
+#[derive(Clone,Copy)]
+pub struct SelectionHighlight {
+    pub object_id:Option<usize>,
+    pub tint:Vec3,
+}
 fn mul(a:Vec3,b:Vec3)->Vec3{Vec3::new(a.x*b.x,a.y*b.y,a.z*b.z)}
 /// Render a shaded solid image from actual meshes, with z-occlusion via BVH.
 /// Same camera projection as the CPU path tracer, including orbit adjustments.
@@ -28,13 +34,13 @@ pub fn solid_preview_cancellable(
     scene:&Scene,camera:CameraSettings,width:u32,height:u32,
     epoch:&AtomicU64,expected:u64
 )->Result<Vec<u8>,&'static str>{
-    solid_preview_cancellable_highlight(scene,camera,width,height,epoch,expected,None,Vec3::ZERO)
+    solid_preview_cancellable_highlight(scene,camera,width,height,epoch,expected,SelectionHighlight{object_id:None,tint:Vec3::ZERO})
 }
 /// Optional selection tint marks the selected OBJ group in the solid viewport.
 /// Preserves original ray-cast geometry, depth and all shading outside selection.
 pub fn solid_preview_cancellable_highlight(
     scene:&Scene,camera:CameraSettings,width:u32,height:u32,
-    epoch:&AtomicU64,expected:u64,selected:Option<usize>,tint:Vec3
+    epoch:&AtomicU64,expected:u64,selection:SelectionHighlight
 )->Result<Vec<u8>,&'static str>{
     let camera=camera.validate()?;
     if !(1..=2048).contains(&width)||!(1..=2048).contains(&height){
@@ -91,9 +97,9 @@ pub fn solid_preview_cancellable_highlight(
                                 .normalized().unwrap_or(to_light)).max(0.0);
                             let shaded=lit+mul(base,metal_tint)*gloss.powf(20.0)
                                 *(0.08+0.14*material.metallic);
-                            if selected==Some(scene.triangle_objects[hit.triangle_index]){
+                            if selection.object_id==Some(scene.triangle_objects[hit.triangle_index]){
                                 // Amber selection tint, not a texture or material mutation.
-                                shaded*0.55+tint*0.45
+                                shaded*0.55+selection.tint*0.45
                             }else{shaded}
                         }else{
                             let t=(direction.z*0.5+0.5).clamp(0.0,1.0);
