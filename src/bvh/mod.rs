@@ -171,8 +171,8 @@ impl Bvh {
                     match (l,r){
                         (Some(a),Some(b)) if a<=b=>{stack[len]=right;len+=1;stack[len]=left;len+=1;}
                         (Some(_),Some(_))=>{stack[len]=left;len+=1;stack[len]=right;len+=1;}
-                        (Some(_),None)=>stack.push(left),
-                        (None,Some(_))=>stack.push(right),
+                        (Some(_),None)=>{stack[len]=left;len+=1;}
+                        (None,Some(_))=>{stack[len]=right;len+=1;}
                         (None,None)=>{},
                     }
                 }
