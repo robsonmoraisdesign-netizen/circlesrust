@@ -17,6 +17,7 @@ use crate::scene::loader::{load_scene,SceneLoadOptions,LoadedScene};
 use crate::film::save_image;
 use crate::util::math::Vec3;
 use crate::navigation::{orbit,pan,zoom};
+use crate::scene::selection::{pick,frame_object};
 use theme::Tokens;
 
 #[derive(Clone,Copy,PartialEq,Eq,Debug)]
@@ -38,6 +39,7 @@ struct StudioApp {
     settings:RenderSettings,camera:CameraSettings,denoise:u8,active_material:usize,
     scene:Option<Arc<LoadedScene>>,
     view:ViewMode,revision:u64,
+    selected_object:Option<usize>,
     nav_tool:NavigationTool,
     epoch:Arc<AtomicU64>,last_edit:Instant,
     solid:Option<egui::TextureHandle>,
@@ -65,6 +67,7 @@ impl StudioApp {
             camera:CameraSettings::default(),denoise:2,active_material:0,
             scene:load_scene(&SceneLoadOptions::studio()).ok().map(Arc::new),
             view:ViewMode::Solid,revision:1,
+            selected_object:None,
             nav_tool:NavigationTool::Orbit,
             epoch:Arc::new(AtomicU64::new(1)),last_edit:Instant::now(),
             solid:None,live:None,final_image:None,
@@ -96,11 +99,33 @@ impl StudioApp {
                     loaded.material_names.len());
                 self.scene=Some(Arc::new(loaded));
                 self.active_material=0;
+                self.selected_object=None;
                 self.final_image=None;
                 self.view=ViewMode::Solid;
                 self.invalidate();
             }
             Err(e)=>self.status=format!("Não foi possível importar a cena: {e}"),
+        }
+    }
+    fn select_object(&mut self,id:usize){
+        if let Some(loaded)=&self.scene{
+            if id>=loaded.scene.object_names.len(){return;}
+            if let Some((triangle,_))=loaded.scene.triangle_objects.iter()
+                .enumerate().find(|(_,object)|**object==id){
+                self.active_material=loaded.scene.triangle_materials[triangle];
+            }
+            self.selected_object=Some(id);
+            self.status=format!("Objeto selecionado: {} (pressione F para enquadrar).",
+                loaded.scene.object_names[id]);
+            self.invalidate();
+        }
+    }
+    fn focus_selection(&mut self){
+        if let (Some(scene),Some(id))=(&self.scene,self.selected_object){
+            let aspect=self.settings.width.max(1) as f32/self.settings.height.max(1) as f32;
+            if frame_object(&scene.scene,&mut self.camera,id,aspect){
+                self.invalidate();
+            }
         }
     }
     fn launch_final(&mut self){
@@ -143,10 +168,11 @@ impl StudioApp {
         let tx=self.sender.clone();
         let revision=self.revision;
         let epoch=self.epoch.clone();
+        let selected=self.selected_object;
         self.solid_busy=true;
         std::thread::spawn(move||{
-            let result=preview::solid_preview_cancellable(
-                &snapshot.scene,camera,w,h,&epoch,revision
+            let result=preview::solid_preview_cancellable_highlight(
+                &snapshot.scene,camera,w,h,&epoch,revision,selected
             ).map(|bytes|(bytes,w,h)).map_err(str::to_owned);
             let _=tx.send(Report{job:Job::Solid,revision,output:None,result});
         });
@@ -312,13 +338,23 @@ impl StudioApp {
                     ui.add(egui::TextEdit::singleline(&mut self.mtl_path)
                         .desired_width(f32::INFINITY));
                     if ui.button("Importar / Recarregar").clicked(){self.load();}
+                    let mut clicked_object=None;
                     if let Some(scene)=&self.scene{
                         ui.separator();
                         ui.label(&scene.source_label);
-                        ui.label(format!("{} triângulos",scene.scene.bvh.stats().triangles));
-                        for (id,name) in scene.material_names.iter().enumerate(){
-                            ui.selectable_value(&mut self.active_material,id,name);
+                        ui.label(format!("{} triângulos • {} objetos",
+                            scene.scene.bvh.stats().triangles,
+                            scene.scene.object_names.len()));
+                        for (id,name) in scene.scene.object_names.iter().enumerate(){
+                            if ui.selectable_label(
+                                self.selected_object==Some(id),name
+                            ).clicked(){clicked_object=Some(id);}
                         }
+                    }
+                    if let Some(id)=clicked_object{self.select_object(id);}
+                    if ui.add_enabled(self.selected_object.is_some(),
+                        egui::Button::new("Enquadrar selecionado (F)")).clicked(){
+                        self.focus_selection();
                     }
                 });
             });
@@ -338,7 +374,13 @@ impl StudioApp {
                         ui.label("Abra uma cena.");return;
                     };
                     let id=self.active_material.min(loaded.scene.materials.len()-1);
-                    ui.label(&loaded.material_names[id]);
+                    egui::ComboBox::from_label("Material")
+                        .selected_text(&loaded.material_names[id])
+                        .show_ui(ui,|ui|{
+                            for (i,name) in loaded.material_names.iter().enumerate(){
+                                ui.selectable_value(&mut self.active_material,i,name);
+                            }
+                        });
                     let mut changed=false;
                     if let Some(scene)=self.scene.as_mut(){
                         let material=&mut Arc::make_mut(scene).scene.materials[id];
@@ -417,7 +459,7 @@ impl StudioApp {
                         self.camera=CameraSettings::default();
                         self.invalidate();
                     }
-                    ui.label("Arraste com o botão esquerdo usando a ferramenta selecionada");
+                    ui.label("Clique para selecionar objetos • F para enquadrar");
                 });
             }
             if self.view==ViewMode::Final {
@@ -435,6 +477,7 @@ impl StudioApp {
                 ViewMode::Live=>self.live.as_ref(),
                 ViewMode::Final=>self.final_image.as_ref(),
             };
+            let mut pick_image=None;
             if let Some(texture)=texture{
                 let original=texture.size_vec2();
                 let scale=(rect.width()/original.x).min(rect.height()/original.y).max(0.01);
@@ -442,6 +485,7 @@ impl StudioApp {
                 let height=original.y*scale;
                 let top_left=egui::pos2(rect.center().x-width*0.5,rect.center().y-height*0.5);
                 let image_rect=egui::Rect::from_min_size(top_left,egui::vec2(width,height));
+                pick_image=Some((image_rect,original.x/original.y));
                 painter.image(texture.id(),image_rect,
                     egui::Rect::from_min_max(egui::Pos2::ZERO,egui::pos2(1.0,1.0)),
                     egui::Color32::WHITE);
@@ -455,6 +499,22 @@ impl StudioApp {
                     egui::FontId::proportional(self.colors.brand_size),self.colors.muted);
             }
             if self.view!=ViewMode::Final{
+                if response.clicked_by(egui::PointerButton::Primary) {
+                    if let (Some((image_rect,aspect)),Some(pointer),Some(loaded))=(
+                        pick_image,response.interact_pointer_pos(),self.scene.as_ref()
+                    ){
+                        if image_rect.contains(pointer){
+                            let u=(pointer.x-image_rect.left())/image_rect.width();
+                            let v=(pointer.y-image_rect.top())/image_rect.height();
+                            if let Some(hit)=pick(&loaded.scene,self.camera,u,v,aspect){
+                                self.select_object(hit.object_id);
+                            }
+                        }
+                    }
+                }
+                if response.hovered() && ui.input(|i|i.key_pressed(egui::Key::F)) {
+                    self.focus_selection();
+                }
                 let mut changed=false;
                 let using_middle=response.dragged_by(egui::PointerButton::Middle);
                 let using_primary=response.dragged_by(egui::PointerButton::Primary);
