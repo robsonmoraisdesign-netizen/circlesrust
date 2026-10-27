@@ -1,3 +1,4 @@
+pub mod selection;
 pub mod loader;
 pub mod mtl;
 // SPDX-FileCopyrightText: 2011-2022 Blender Foundation

@@ -123,6 +123,11 @@ impl ObjMesh {
                 _=>{}, // optional vt, mtllib, usemtl, groups etc. skipped for this milestone
             }
         }
+        // Keep only groups that actually own geometry, preserving first appearance.
+        group_names.clear();
+        for group in &face_groups{
+            if !group_names.contains(group){group_names.push(group.clone());}
+        }
         if triangles.is_empty(){return Err("OBJ has no valid triangles".into());}
         Ok(Self{triangles,corner_normals,corner_uvs,face_materials,face_groups,group_names,material_libraries})
     }
