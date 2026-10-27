@@ -28,6 +28,14 @@ pub fn solid_preview_cancellable(
     scene:&Scene,camera:CameraSettings,width:u32,height:u32,
     epoch:&AtomicU64,expected:u64
 )->Result<Vec<u8>,&'static str>{
+    solid_preview_cancellable_highlight(scene,camera,width,height,epoch,expected,None)
+}
+/// Optional selection tint marks the selected OBJ group in the solid viewport.
+/// Preserves original ray-cast geometry, depth and all shading outside selection.
+pub fn solid_preview_cancellable_highlight(
+    scene:&Scene,camera:CameraSettings,width:u32,height:u32,
+    epoch:&AtomicU64,expected:u64,selected:Option<usize>
+)->Result<Vec<u8>,&'static str>{
     let camera=camera.validate()?;
     if !(1..=2048).contains(&width)||!(1..=2048).contains(&height){
         return Err("Solid preview dimensions must be 1..=2048");
@@ -81,7 +89,12 @@ pub fn solid_preview_cancellable(
                             let lit=mul(base,lighting);
                             let gloss=normal.dot((to_light-direction)
                                 .normalized().unwrap_or(to_light)).max(0.0);
-                            lit+mul(base,metal_tint)*gloss.powf(20.0)*(0.08+0.14*material.metallic)
+                            let shaded=lit+mul(base,metal_tint)*gloss.powf(20.0)
+                                *(0.08+0.14*material.metallic);
+                            if selected==Some(scene.triangle_objects[hit.triangle_index]){
+                                // Amber selection tint, not a texture or material mutation.
+                                shaded*0.55+Vec3::new(0.95,0.57,0.11)*0.45
+                            }else{shaded}
                         }else{
                             let t=(direction.z*0.5+0.5).clamp(0.0,1.0);
                             Vec3::new(0.055,0.075,0.11)*(1.0-t)
