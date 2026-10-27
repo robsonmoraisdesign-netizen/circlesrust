@@ -4,8 +4,8 @@
 //! CPU path tracing on scene edits and progressively refines. Final view keeps
 //! the full-resolution image, with a permanent route back to the environment.
 //! None of these paths pretends to be a GPU-backed Cycles viewport.
-mod preview;
 mod theme;
+use crate::preview;
 
 use std::{path::PathBuf,sync::{Arc,mpsc},time::Duration};
 use eframe::egui;

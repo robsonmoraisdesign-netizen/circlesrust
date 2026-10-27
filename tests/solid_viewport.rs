@@ -1,6 +1,6 @@
 use circlesrust::integrator::{CameraSettings,RenderSettings};
 use circlesrust::scene::studio_scene;
-use circlesrust::desktop::preview::solid_preview;
+use circlesrust::preview::solid_preview;
 use circlesrust::util::math::Vec3;
 
 #[test]
