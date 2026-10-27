@@ -4,6 +4,8 @@
 
 use crate::util::math::Vec3;
 use std::path::Path;
+pub mod surface;
+
 
 fn linear(channel: u8) -> f32 {
     let x = channel as f32 / 255.0;
@@ -31,24 +33,42 @@ pub struct ImageTexture {
     height: usize,
     pixels: Vec<Vec3>,
 }
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub enum TextureColorSpace { Srgb, NonColor }
+
 impl ImageTexture {
     pub fn from_rgb8(width: u32, height: u32, pixels: &[u8]) -> Result<Self, String> {
+        Self::from_rgb8_with_space(width,height,pixels,TextureColorSpace::Srgb)
+    }
+    /// NonColor keeps channel bytes linear for scalar/normal PBR maps.
+    pub fn from_rgb8_with_space(
+        width:u32,height:u32,pixels:&[u8],space:TextureColorSpace
+    )->Result<Self,String>{
         let size=(width as usize).checked_mul(height as usize)
             .ok_or("Texture dimensions overflow")?;
         if size==0 || pixels.len()!=size*3 || width>16384 || height>16384 {
             return Err("Invalid texture dimensions or pixel buffer".to_owned());
         }
+        let channel=|byte:u8|match space{
+            TextureColorSpace::Srgb=>linear(byte),
+            TextureColorSpace::NonColor=>byte as f32/255.0,
+        };
         let converted=pixels.as_chunks::<3>().0.iter()
-            .map(|p| Vec3::new(linear(p[0]),linear(p[1]),linear(p[2]))).collect();
+            .map(|p| Vec3::new(channel(p[0]),channel(p[1]),channel(p[2]))).collect();
         Ok(Self{width:width as usize,height:height as usize,pixels:converted})
     }
-    pub fn load(path:impl AsRef<Path>) -> Result<Self,String> {
+    pub fn load(path:impl AsRef<Path>) -> Result<Self,String>{
+        Self::load_with_space(path,TextureColorSpace::Srgb)
+    }
+    pub fn load_with_space(
+        path:impl AsRef<Path>,space:TextureColorSpace
+    )->Result<Self,String> {
         let source=path.as_ref();
         // Decode one time during scene loading, never inside the ray loop.
         let data=image::open(source)
             .map_err(|e|format!("Cannot decode {}: {e}",source.display()))?
             .to_rgb8();
-        Self::from_rgb8(data.width(),data.height(),data.as_raw())
+        Self::from_rgb8_with_space(data.width(),data.height(),data.as_raw(),space)
     }
     fn pixel(&self,x:usize,y:usize)->Vec3 {self.pixels[y*self.width+x]}
     /// Bilinear filtered, repeating U/V. Image pixels top-down, OBJ V bottom-up.
