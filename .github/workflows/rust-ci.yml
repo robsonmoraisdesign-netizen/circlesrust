@@ -7,6 +7,7 @@ on:
       - feat/cycles-sah-mtl-materials
       - feat/rust-uv-textures-shader-graph
       - feat/pbr-texture-channels-normals
+      - feat/native-rust-desktop-studio
   pull_request:
 jobs:
   test:
@@ -66,4 +67,22 @@ jobs:
             preview.png
             preview.bmp
             RENDER_QUALIDADE_WINDOWS.bat
+          if-no-files-found: error
+
+
+  desktop-windows:
+    name: Native RV Studio desktop (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Compile graphical app (Rust egui)
+        run: cargo build --release --features desktop-ui --bin circlesrust-studio
+      - name: Upload executable Windows desktop
+        uses: actions/upload-artifact@v4
+        with:
+          name: RV-Studio-CirclesRust-Windows-Desktop
+          path: |
+            target/release/circlesrust-studio.exe
+            docs/GUI_DESKTOP_RUST.md
           if-no-files-found: error

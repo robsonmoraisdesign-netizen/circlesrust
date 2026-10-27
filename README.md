@@ -2,6 +2,18 @@
 
 **Motor original usado como referência:** [clonecircles](https://github.com/robsonmoraisdesign-netizen/clonecircles), branch `main`, commit `3eb35f85996baa6c1b2e19bf297b22745c85e321`. O repositório original é C/C++. Aqui a conversão é incremental: **ainda não existe um port completo do Cycles**.
 
+## Novo: aplicativo Windows com interface gráfica Rust
+
+O módulo experimental `circlesrust-studio.exe` agora possui interface desktop **egui/eframe (Rust)**, não só o utilitário CLI. A organização segue as áreas do RV Studio Render aprovado: ambiente/objetos à esquerda, imagem central, câmera inferior e materiais à direita, com temas centralizados.
+
+O botão **RENDERIZAR** usa o núcleo Rust CPU real e salva a imagem. A opção `desktop-ui` permite compilar o aplicativo Windows:
+
+~~~sh
+cargo build --release --features desktop-ui --bin circlesrust-studio
+~~~
+
+A versão CLI antiga permanece inalterada. Consulte [instruções e limitações da UI nativa](docs/GUI_DESKTOP_RUST.md). O viewport central ainda não é um modelador 3D interativo; GPU não está integrada.
+
 ## Iluminação por mapa panorâmico
 
 Você também pode substituir o céu procedural por uma imagem panorâmica equiretangular. Arquivos Radiance **.hdr (RGBE)** são decodificados em luz RGB linear de 32 bits sem cortar valores acima de 1; panoramas PNG/JPEG/PNM são convertidos de sRGB para linear.
