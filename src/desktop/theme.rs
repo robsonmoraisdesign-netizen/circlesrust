@@ -18,6 +18,9 @@ pub struct Tokens {
     pub gap:f32,
     pub padding:f32,
     pub brand_size:f32,
+    pub min_side:f32,
+    pub camera_min:f32,
+    pub camera_max:f32,
 }
 impl Tokens {
     pub fn palette(dark:bool)->Self{
@@ -41,7 +44,8 @@ impl Tokens {
         Self{
             dark,accent,muted,panel,canvas,positive,
             left_width:258.0,right_width:305.0,camera_height:170.0,
-            top_height:68.0,gap:10.0,padding:16.0,brand_size:15.0
+            top_height:92.0,gap:10.0,padding:16.0,brand_size:15.0,
+            min_side:185.0,camera_min:100.0,camera_max:290.0
         }
     }
     pub fn apply(self,ctx:&egui::Context){
