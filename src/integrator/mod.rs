@@ -11,6 +11,7 @@ use crate::kernel::geometry::{Ray, Triangle};
 use crate::util::hash::hash_uint3;
 use crate::util::math::Vec3;
 use crate::shader::{ShaderGraph,Uv};
+use crate::shader::surface::SurfaceMaps;
 
 fn rgb_mul(a: Vec3, b: Vec3) -> Vec3 {
     Vec3::new(a.x * b.x, a.y * b.y, a.z * b.z)
@@ -100,6 +101,8 @@ pub struct Scene {
     pub corner_uvs: Vec<Option<[Uv;3]>>,
     /// One optional native Rust color shader graph for each material slot.
     pub shader_graphs: Vec<Option<ShaderGraph>>,
+    /// Scalar roughness, metallic and tangent-space normal maps by material.
+    pub surface_maps: Vec<SurfaceMaps>,
     pub materials: Vec<Material>,
     pub light: RectLight,
     pub sky_strength: f32,
@@ -123,6 +126,7 @@ impl Scene {
             corner_normals: vec![None; triangle_materials.len()],
             corner_uvs: vec![None; triangle_materials.len()],
             shader_graphs: vec![None; materials.len()],
+            surface_maps: vec![SurfaceMaps::default();materials.len()],
             triangle_materials, materials,
             light, sky_strength: 1.0,
         })
@@ -166,13 +170,38 @@ impl Scene {
         self.shader_graphs=graphs;
         Ok(())
     }
+    pub fn set_surface_maps(
+        &mut self,maps:Vec<SurfaceMaps>
+    )->Result<(),&'static str>{
+        if maps.len()!=self.materials.len(){return Err("Surface maps/material slot mismatch");}
+        self.surface_maps=maps;
+        Ok(())
+    }
+    /// Texture-aware shading normal for rays and denoiser guide buffer.
+    pub fn mapped_shading_normal(&self,triangle:usize,u:f32,v:f32)->Vec3{
+        let base=self.shading_normal(triangle,u,v);
+        if let (Some(corners),Some(maps))=(
+            self.corner_uvs[triangle],
+            self.surface_maps.get(self.triangle_materials[triangle]),
+        ){
+            let uv=Uv::interpolate(corners,u,v);
+            return maps.mapped_normal(
+                self.bvh.triangle(triangle).expect("valid triangle"),
+                corners,uv,base
+            ).unwrap_or(base);
+        }
+        base
+    }
+
     fn material_for(&self,triangle:usize,b:f32,c:f32)->Material {
         let index=self.triangle_materials[triangle];
         let mut material=self.materials[index];
-        if let (Some(graph),Some(corners))=
-            (&self.shader_graphs[index],self.corner_uvs[triangle]) {
+        if let Some(corners)=self.corner_uvs[triangle] {
             let uv=Uv::interpolate(corners,b,c);
-            material.base_color=graph.evaluate(uv);
+            if let Some(graph)=&self.shader_graphs[index] {
+                material.base_color=graph.evaluate(uv);
+            }
+            material=self.surface_maps[index].resolved_material(material,uv);
         }
         material
     }
@@ -384,7 +413,7 @@ fn trace(scene:&Scene,first:Ray,max_bounces:u32,rng:&mut Rng)->Vec3{
         };
         let material=scene.material_for(hit.triangle_index,hit.u,hit.v);
         let mut geometric=scene.bvh.triangle(hit.triangle_index).expect("valid triangle id").normal();
-        let mut normal=scene.shading_normal(hit.triangle_index,hit.u,hit.v);
+        let mut normal=scene.mapped_shading_normal(hit.triangle_index,hit.u,hit.v);
         if geometric.dot(ray.direction)>0.0 {
             geometric = -geometric;
             normal = -normal;
