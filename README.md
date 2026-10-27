@@ -2,6 +2,18 @@
 
 **Motor original usado como referência:** [clonecircles](https://github.com/robsonmoraisdesign-netizen/clonecircles), branch `main`, commit `3eb35f85996baa6c1b2e19bf297b22745c85e321`. O repositório original é C/C++. Aqui a conversão é incremental: **ainda não existe um port completo do Cycles**.
 
+## Iluminação por mapa panorâmico
+
+Você também pode substituir o céu procedural por uma imagem panorâmica equiretangular. Arquivos Radiance **.hdr (RGBE)** são decodificados em luz RGB linear de 32 bits sem cortar valores acima de 1; panoramas PNG/JPEG/PNM são convertidos de sRGB para linear.
+
+~~~powershell
+.\circlesrust-preview.exe Render_HDR.png 1920 1080 128 --obj modelo.obj --environment studio.hdr --env-strength 1.0 --denoise 3
+~~~
+
+O arquivo é carregado diretamente pelo programa Rust, sem precisar indicar caminhos para Blender, LuxCore ou DLLs externas. A iluminação usa o mapa na contribuição do ambiente para os raios primários e indiretos e na estimativa de luz ambiente.
+
+**Limitações:** a amostragem panorâmica nesta fase é hemisférica, sem importância baseada na luminosidade dos texels do HDRI. Hotspots pequenos podem ficar ruidosos. Suporte formal de EXR, gerenciamento OCIO/AgX e GPU continuam pendentes.
+
 ## Fase atual — mapas de rugosidade, metalicidade e normais em Rust
 
 A versão nova aceita mapas PBR independentes referenciados no MTL: map_Pr para rugosidade, map_Pm para metalicidade e norm/map_Kn para normais tangenciais OpenGL (+Y). Os canais são decodificados em espaço **NonColor**, sem aplicação incorreta da curva de gamma sRGB. O canal vermelho de cada mapa escalar substitui a constante de roughness/metalness, enquanto o mapa de normal altera a direção usada pela BSDF.
