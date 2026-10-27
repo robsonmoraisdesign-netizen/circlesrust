@@ -2,6 +2,23 @@
 
 **Motor original usado como referência:** [clonecircles](https://github.com/robsonmoraisdesign-netizen/clonecircles), branch `main`, commit `3eb35f85996baa6c1b2e19bf297b22745c85e321`. O repositório original é C/C++. Aqui a conversão é incremental: **ainda não existe um port completo do Cycles**.
 
+## Seleção de objetos e foco no viewport (nova fase)
+
+O visual em HTML aprovado continua arquivado em ui/RV_Studio_Render_Layout_Corrigido.html, **sem alterações**. Um arquivo .gitattributes marca essa referência como documentação, para o GitHub Linguist contabilizar preferencialmente o Rust como linguagem funcional do projeto.
+
+A partir desta fase, o importador Wavefront OBJ preserva comandos o/g como identificadores de grupos de geometria e não os confunde com materiais usemtl. A cena de demonstração possui objetos nomeados separadamente para piso, fundo, cubos e esfera.
+
+No modo **Ambiente 3D**:
+- clique com o botão esquerdo sobre um objeto visível para selecioná-lo (seleção por raio contra a BVH, sem inventar IDs);
+- a seleção recebe destaque âmbar no viewport sólido;
+- o painel esquerdo mostra **objetos reais**, enquanto o painel de materiais tem seleção própria;
+- pressione **F** com o mouse sobre o viewport, ou **Enquadrar selecionado**, para centralizar a câmera no objeto/grupo;
+- pan, orbitar, zoom e as abas Ambiente/Tempo real/Imagem final continuam disponíveis.
+
+A BVH passou a usar uma pilha local de tamanho fixo para travessia, evitando uma alocação de heap por chamada de interseção. O limite atual do construtor é profundidade 64 e a pilha tem 128 posições. Testes geométricos existentes continuam sendo a medida de equivalência; não há benchmark de ganho de tempo reivindicado.
+
+A seleção usa IDs de objetos/grupos OBJ; não cria transformações locais editáveis, hierarquia de objetos Blender nem gizmos. O motor ainda usa CPU e não possui viewport rasterizado em GPU.
+
 ## Pan e navegação responsiva (novo)
 
 - Arraste com **botão do meio** para orbitar, **Shift + botão do meio** para pan e **roda** para zoom.

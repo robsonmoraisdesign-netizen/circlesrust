@@ -146,8 +146,12 @@ impl Bvh {
         if self.nodes.is_empty(){return None;}
         let mut best=ray.t_max;
         let mut result=None;
-        let mut stack=vec![0usize];
-        while let Some(index)=stack.pop(){
+        // Depth is limited to 64; 128 pending siblings fit on stack.
+        let mut stack=[0usize;128];
+        let mut len=1usize;
+        while len>0{
+            len-=1;
+            let index=stack[len];
             let node=self.nodes[index];
             if node.bounds.entry_distance(ray,best).is_none(){continue;}
             match node.kind{
@@ -165,10 +169,10 @@ impl Bvh {
                     let l=self.nodes[left].bounds.entry_distance(ray,best);
                     let r=self.nodes[right].bounds.entry_distance(ray,best);
                     match (l,r){
-                        (Some(a),Some(b)) if a<=b=>{stack.push(right);stack.push(left);}
-                        (Some(_),Some(_))=>{stack.push(left);stack.push(right);}
-                        (Some(_),None)=>stack.push(left),
-                        (None,Some(_))=>stack.push(right),
+                        (Some(a),Some(b)) if a<=b=>{stack[len]=right;len+=1;stack[len]=left;len+=1;}
+                        (Some(_),Some(_))=>{stack[len]=left;len+=1;stack[len]=right;len+=1;}
+                        (Some(_),None)=>{stack[len]=left;len+=1;}
+                        (None,Some(_))=>{stack[len]=right;len+=1;}
                         (None,None)=>{},
                     }
                 }
@@ -179,8 +183,12 @@ impl Bvh {
     /// True if any opaque triangle lies within this ray's t-interval.
     pub fn occluded(&self,ray:&Ray)->bool{
         if self.nodes.is_empty(){return false;}
-        let mut stack=vec![0usize];
-        while let Some(index)=stack.pop(){
+        // Depth is limited to 64; 128 pending siblings fit on stack.
+        let mut stack=[0usize;128];
+        let mut len=1usize;
+        while len>0{
+            len-=1;
+            let index=stack[len];
             let node=self.nodes[index];
             if node.bounds.entry_distance(ray,ray.t_max).is_none(){continue;}
             match node.kind{
@@ -191,7 +199,7 @@ impl Bvh {
                         }
                     }
                 }
-                Kind::Branch{left,right}=>{stack.push(right);stack.push(left);}
+                Kind::Branch{left,right}=>{stack[len]=right;len+=1;stack[len]=left;len+=1;}
             }
         }
         false

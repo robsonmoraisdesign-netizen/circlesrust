@@ -96,6 +96,10 @@ impl RectLight {
 pub struct Scene {
     pub bvh: Bvh,
     pub triangle_materials: Vec<usize>,
+    /// Source object/group mapping, aligned with triangle indices.
+    pub triangle_objects: Vec<usize>,
+    /// Object identities independent of material slots.
+    pub object_names: Vec<String>,
     /// Per-triangle optional corner normals (aligned with input triangle indexing).
     /// Equivalent in intent to Cycles triangle_smooth_normal barycentric interpolation.
     pub corner_normals: Vec<Option<[Vec3; 3]>>,
@@ -131,11 +135,26 @@ impl Scene {
             corner_uvs: vec![None; triangle_materials.len()],
             shader_graphs: vec![None; materials.len()],
             surface_maps: vec![SurfaceMaps::default();materials.len()],
+            triangle_objects:vec![0;triangle_materials.len()],
+            object_names:vec!["Cena".into()],
             triangle_materials, materials,
             light, sky_strength: 1.0,
             environment_map: None,
         })
     }
+    pub fn set_objects(
+        &mut self,objects:Vec<usize>,names:Vec<String>
+    )->Result<(),&'static str>{
+        if objects.len()!=self.triangle_materials.len()||names.is_empty()
+            ||names.iter().any(|n|n.trim().is_empty())
+            ||objects.iter().any(|&id|id>=names.len()){
+            return Err("Invalid triangle/object identity mapping");
+        }
+        self.triangle_objects=objects;
+        self.object_names=names;
+        Ok(())
+    }
+
     /// Install optional corner normals, preserving geometric normals on flat faces.
     pub fn set_corner_normals(&mut self, normals: Vec<Option<[Vec3;3]>>) -> Result<(), &'static str> {
         if normals.len() != self.triangle_materials.len() ||
