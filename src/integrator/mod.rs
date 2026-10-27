@@ -450,6 +450,32 @@ fn trace(scene:&Scene,first:Ray,max_bounces:u32,rng:&mut Rng)->Vec3{
     radiance
 }
 
+/// Explicit camera for the native desktop UI. Prior renders keep original defaults.
+#[derive(Clone,Copy,Debug)]
+pub struct CameraSettings {
+    pub origin: Vec3,
+    pub target: Vec3,
+    pub fov_degrees: f32,
+}
+impl Default for CameraSettings {
+    fn default()->Self {
+        Self {
+            origin:Vec3::new(4.1,-7.6,3.65),
+            target:Vec3::new(0.0,0.15,0.96),
+            fov_degrees:40.0
+        }
+    }
+}
+impl CameraSettings {
+    pub fn validate(self)->Result<Self,&'static str> {
+        if !self.origin.is_finite() || !self.target.is_finite()
+            || !(5.0..=150.0).contains(&self.fov_degrees)
+            || !self.fov_degrees.is_finite()
+            || (self.target-self.origin).length_squared()<1e-8
+        { return Err("Invalid camera position, target or FOV");}
+        Ok(self)
+    }
+}
 #[derive(Clone, Copy)]
 struct Camera {
     origin:Vec3,
@@ -459,13 +485,21 @@ struct Camera {
     tangent:f32,
 }
 impl Camera{
-    fn studio()->Self{
-        let origin=Vec3::new(4.1,-7.6,3.65);
-        let target=Vec3::new(0.0,0.15,0.96);
-        let forward=(target-origin).normalized().expect("camera forward");
-        let right=forward.cross(Vec3::new(0.0,0.0,1.0)).normalized().expect("camera right");
+    fn studio()->Self {
+        Self::from_settings(CameraSettings::default()).expect("default camera")
+    }
+    fn from_settings(settings:CameraSettings)->Result<Self,&'static str>{
+        let settings=settings.validate()?;
+        let forward=(settings.target-settings.origin).normalized().ok_or("invalid camera")?;
+        let up_hint=if forward.z.abs()>0.99{
+            Vec3::new(0.0,1.0,0.0)
+        }else{Vec3::new(0.0,0.0,1.0)};
+        let right=forward.cross(up_hint).normalized().ok_or("invalid up direction")?;
         let up=right.cross(forward);
-        Self{origin,forward,right,up,tangent:(40.0f32.to_radians()*0.5).tan()}
+        Ok(Self{
+            origin:settings.origin, forward, right, up,
+            tangent:(settings.fov_degrees.to_radians()*0.5).tan()
+        })
     }
     /// Deterministic pixel center for G-buffer/denoising guide data.
     fn center_ray(self,x:u32,y:u32,options:RenderSettings)->Ray{
@@ -502,11 +536,17 @@ fn display_byte(linear:f32,exposure:f32)->u8{
 /// CPU multithreaded Monte Carlo renderer. Returns packed, top-down RGB pixels.
 /// Each pixel gets independently seeded samples, regardless of worker count.
 pub fn render_rgb(scene:&Scene,settings:RenderSettings)->Result<Vec<u8>,&'static str>{
+    render_rgb_with_camera(scene,settings,CameraSettings::default())
+}
+/// Real native CPU path tracer with a user-defined camera.
+pub fn render_rgb_with_camera(
+    scene:&Scene,settings:RenderSettings,camera_settings:CameraSettings
+)->Result<Vec<u8>,&'static str>{
     let settings=settings.validate()?;
     let width=settings.width as usize;
     let height=settings.height as usize;
     let mut bytes=vec![0u8;width*height*3];
-    let camera=Camera::studio();
+    let camera=Camera::from_settings(camera_settings)?;
     let workers=thread::available_parallelism().map(|x|x.get()).unwrap_or(1).min(height);
     let chunk_rows=height.div_ceil(workers);
     thread::scope(|scope|{
@@ -554,9 +594,14 @@ pub fn sample_pixel(scene:&Scene,settings:RenderSettings,x:u32,y:u32)->Result<Ve
 pub fn pixel_guides(
     scene: &Scene, settings: RenderSettings
 ) -> Result<Vec<crate::film::denoise::PixelGuide>, &'static str> {
+    pixel_guides_with_camera(scene,settings,CameraSettings::default())
+}
+pub fn pixel_guides_with_camera(
+    scene:&Scene,settings:RenderSettings,camera_settings:CameraSettings
+)->Result<Vec<crate::film::denoise::PixelGuide>,&'static str>{
     use crate::film::denoise::PixelGuide;
-    let options = settings.validate()?;
-    let camera = Camera::studio();
+    let options=settings.validate()?;
+    let camera=Camera::from_settings(camera_settings)?;
     let mut guides = Vec::with_capacity(options.width as usize * options.height as usize);
     for y in 0..options.height {
         for x in 0..options.width {
@@ -588,5 +633,16 @@ pub fn render_rgb_denoised(
     let rgb=render_rgb(scene,settings)?;
     if strength==0{return Ok(rgb);}
     let guides=pixel_guides(scene,settings)?;
+    crate::film::denoise::denoise_rgb(&rgb,settings.width,settings.height,&guides,strength)
+}
+
+
+/// Shared GUI entrypoint with real camera settings, same integrator + denoiser.
+pub fn render_rgb_denoised_with_camera(
+    scene:&Scene,settings:RenderSettings,camera:CameraSettings,strength:u8
+)->Result<Vec<u8>,&'static str>{
+    let rgb=render_rgb_with_camera(scene,settings,camera)?;
+    if strength==0{return Ok(rgb);}
+    let guides=pixel_guides_with_camera(scene,settings,camera)?;
     crate::film::denoise::denoise_rgb(&rgb,settings.width,settings.height,&guides,strength)
 }
