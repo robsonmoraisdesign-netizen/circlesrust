@@ -4,6 +4,7 @@
 //! The GUI may request a smaller preview while navigating, independently of
 //! the final output resolution.
 use std::thread;
+use std::sync::atomic::{AtomicU64,Ordering};
 use crate::integrator::{CameraSettings,Scene};
 use crate::kernel::geometry::Ray;
 use crate::util::math::Vec3;
@@ -18,6 +19,14 @@ fn mul(a:Vec3,b:Vec3)->Vec3{Vec3::new(a.x*b.x,a.y*b.y,a.z*b.z)}
 /// Same camera projection as the CPU path tracer, including orbit adjustments.
 pub fn solid_preview(
     scene:&Scene,camera:CameraSettings,width:u32,height:u32,
+)->Result<Vec<u8>,&'static str>{
+    let no_cancellation=AtomicU64::new(0);
+    solid_preview_cancellable(scene,camera,width,height,&no_cancellation,0)
+}
+/// Abort obsolete previews during interaction instead of wasting CPU cycles.
+pub fn solid_preview_cancellable(
+    scene:&Scene,camera:CameraSettings,width:u32,height:u32,
+    epoch:&AtomicU64,expected:u64
 )->Result<Vec<u8>,&'static str>{
     let camera=camera.validate()?;
     if !(1..=2048).contains(&width)||!(1..=2048).contains(&height){
@@ -45,6 +54,7 @@ pub fn solid_preview(
                 for (local_y,line) in part.chunks_exact_mut(w*3).enumerate(){
                     let y=start_y+local_y;
                     for (x,px) in line.as_chunks_mut::<3>().0.iter_mut().enumerate(){
+                        if x%16==0 && epoch.load(Ordering::Relaxed)!=expected{return;}
                         let sx=(2.0*(x as f32+0.5)/width as f32-1.0)*aspect*tangent;
                         let sy=(1.0-2.0*(y as f32+0.5)/height as f32)*tangent;
                         let Some(direction)=(forward+right*sx+up*sy).normalized() else{continue;};
@@ -83,5 +93,8 @@ pub fn solid_preview(
             });
         }
     });
+    if epoch.load(Ordering::Relaxed)!=expected{
+        return Err("Solid preview superseded");
+    }
     Ok(pixels)
 }

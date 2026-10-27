@@ -7,18 +7,22 @@
 mod theme;
 use crate::preview;
 
-use std::{path::PathBuf,sync::{Arc,mpsc},time::Duration};
+use std::{path::PathBuf,sync::{Arc,mpsc,atomic::{AtomicU64,Ordering}},time::{Duration,Instant}};
 use eframe::egui;
 use crate::integrator::{
-    CameraSettings,RenderSettings,render_rgb_denoised_with_camera
+    CameraSettings,RenderSettings,render_rgb_denoised_with_camera,
+    render_rgb_denoised_with_camera_cancellable
 };
 use crate::scene::loader::{load_scene,SceneLoadOptions,LoadedScene};
 use crate::film::save_image;
 use crate::util::math::Vec3;
+use crate::navigation::{orbit,pan,zoom};
 use theme::Tokens;
 
 #[derive(Clone,Copy,PartialEq,Eq,Debug)]
 enum ViewMode { Solid, Live, Final }
+#[derive(Clone,Copy,PartialEq,Eq)]
+enum NavigationTool { Orbit, Pan }
 #[derive(Clone,Copy,Debug)]
 enum Job { Solid, Live(u8), Final }
 struct Report{
@@ -34,6 +38,8 @@ struct StudioApp {
     settings:RenderSettings,camera:CameraSettings,denoise:u8,active_material:usize,
     scene:Option<Arc<LoadedScene>>,
     view:ViewMode,revision:u64,
+    nav_tool:NavigationTool,
+    epoch:Arc<AtomicU64>,last_edit:Instant,
     solid:Option<egui::TextureHandle>,
     live:Option<egui::TextureHandle>,
     final_image:Option<egui::TextureHandle>,
@@ -59,6 +65,8 @@ impl StudioApp {
             camera:CameraSettings::default(),denoise:2,active_material:0,
             scene:load_scene(&SceneLoadOptions::studio()).ok().map(Arc::new),
             view:ViewMode::Solid,revision:1,
+            nav_tool:NavigationTool::Orbit,
+            epoch:Arc::new(AtomicU64::new(1)),last_edit:Instant::now(),
             solid:None,live:None,final_image:None,
             solid_revision:None,live_revision:None,live_pass:0,
             solid_busy:false,live_busy:false,final_busy:false,
@@ -68,6 +76,8 @@ impl StudioApp {
     }
     fn invalidate(&mut self){
         self.revision=self.revision.saturating_add(1);
+        self.epoch.store(self.revision,Ordering::Relaxed);
+        self.last_edit=Instant::now();
         self.solid_revision=None;
         self.live_revision=None;
         self.live_pass=0;
@@ -129,13 +139,15 @@ impl StudioApp {
         if self.solid_busy || self.solid_revision==Some(self.revision){return;}
         let Some(snapshot)=self.scene.as_ref().cloned() else{return;};
         let camera=self.camera;
-        let (w,h)=preview_size(self.settings,680);
+        let (w,h)=preview_size(self.settings,580);
         let tx=self.sender.clone();
         let revision=self.revision;
+        let epoch=self.epoch.clone();
         self.solid_busy=true;
         std::thread::spawn(move||{
-            let result=preview::solid_preview(&snapshot.scene,camera,w,h)
-                .map(|bytes|(bytes,w,h)).map_err(str::to_owned);
+            let result=preview::solid_preview_cancellable(
+                &snapshot.scene,camera,w,h,&epoch,revision
+            ).map(|bytes|(bytes,w,h)).map_err(str::to_owned);
             let _=tx.send(Report{job:Job::Solid,revision,output:None,result});
         });
     }
@@ -143,19 +155,21 @@ impl StudioApp {
         if self.live_busy || self.live_pass>=3{return;}
         let Some(snapshot)=self.scene.as_ref().cloned() else{return;};
         let mut settings=self.settings;
-        let (w,h)=preview_size(settings,420);
+        let (w,h)=preview_size(settings,360);
         settings.width=w;
         settings.height=h;
-        settings.samples=[1,3,8][self.live_pass as usize];
+        settings.samples=[1,2,4][self.live_pass as usize];
         settings.max_bounces=settings.max_bounces.min(4);
         let pass=self.live_pass;
         let revision=self.revision;
         let camera=self.camera;
         let tx=self.sender.clone();
+        let epoch=self.epoch.clone();
         self.live_busy=true;
         std::thread::spawn(move||{
-            let result=render_rgb_denoised_with_camera(
-                &snapshot.scene,settings,camera,if pass==2 {1}else{0}
+            let result=render_rgb_denoised_with_camera_cancellable(
+                &snapshot.scene,settings,camera,if pass==2 {1}else{0},
+                &epoch,revision
             ).map(|bytes|(bytes,w,h)).map_err(str::to_owned);
             let _=tx.send(Report{job:Job::Live(pass),revision,output:None,result});
         });
@@ -190,7 +204,7 @@ impl StudioApp {
                             self.live_pass=pass+1;
                             if self.view==ViewMode::Live{
                                 self.status=format!("Render em tempo real CPU: {} amostras ({}×{}).",
-                                    [1,3,8][pass as usize],w,h);
+                                    [1,2,4][pass as usize],w,h);
                             }
                         }
                         Job::Final=>{
@@ -206,7 +220,7 @@ impl StudioApp {
     }
     fn top(&mut self,ctx:&egui::Context){
         egui::TopBottomPanel::top("rv_topbar")
-            .exact_height(self.colors.top_height).show(ctx,|ui|{
+            .show(ctx,|ui|{
                 ui.horizontal_wrapped(|ui|{
                     ui.heading(egui::RichText::new("RV STUDIO RENDER")
                         .size(self.colors.brand_size));
@@ -257,7 +271,8 @@ impl StudioApp {
             });
     }
     fn left(&mut self,ctx:&egui::Context){
-        let max_side=((ctx.available_rect().width()-440.0)/2.0).max(self.colors.min_side);
+        let max_side=(ctx.available_rect().width()*0.38)
+            .clamp(self.colors.min_side,self.colors.max_side);
         egui::SidePanel::left("rv_environment")
             .resizable(true)
             .width_range(self.colors.min_side..=max_side)
@@ -309,7 +324,8 @@ impl StudioApp {
             });
     }
     fn right(&mut self,ctx:&egui::Context){
-        let max_side=((ctx.available_rect().width()-380.0)/2.0).max(self.colors.min_side);
+        let max_side=(ctx.available_rect().width()-self.colors.min_center)
+            .clamp(self.colors.min_side,self.colors.max_side);
         egui::SidePanel::right("rv_materials")
             .resizable(true)
             .width_range(self.colors.min_side..=max_side)
@@ -387,11 +403,23 @@ impl StudioApp {
                 }
             });
             ui.label(egui::RichText::new(match self.view{
-                ViewMode::Solid=>"Arraste para orbitar • Use a roda do mouse para aproximar",
-                ViewMode::Live=>"Refinamento automático: 1 → 3 → 8 amostras ao alterar a cena",
+                ViewMode::Solid=>"Botão do meio: orbitar • Shift + meio: pan • Roda: zoom",
+                ViewMode::Live=>"Tempo real CPU: 1 → 2 → 4 amostras • Shift + meio: pan",
                 ViewMode::Final=>"Imagem exportada em resolução original • Renderização CPU",
             }).color(self.colors.muted));
             ui.separator();
+            if self.view!=ViewMode::Final {
+                ui.horizontal_wrapped(|ui|{
+                    ui.label("Navegação");
+                    ui.selectable_value(&mut self.nav_tool,NavigationTool::Orbit,"Orbitar");
+                    ui.selectable_value(&mut self.nav_tool,NavigationTool::Pan,"Pan");
+                    if ui.button("Redefinir câmera").clicked(){
+                        self.camera=CameraSettings::default();
+                        self.invalidate();
+                    }
+                    ui.label("Arraste com o botão esquerdo usando a ferramenta selecionada");
+                });
+            }
             if self.view==ViewMode::Final {
                 ui.label("Arquivo final");
                 ui.add(egui::TextEdit::singleline(&mut self.output_path)
@@ -428,18 +456,25 @@ impl StudioApp {
             }
             if self.view!=ViewMode::Final{
                 let mut changed=false;
-                if response.dragged_by(egui::PointerButton::Primary){
+                let using_middle=response.dragged_by(egui::PointerButton::Middle);
+                let using_primary=response.dragged_by(egui::PointerButton::Primary);
+                let shift=ui.input(|i|i.modifiers.shift);
+                if using_middle||using_primary{
                     let delta=ui.input(|i|i.pointer.delta());
                     if delta.length_sq()>0.0{
-                        orbit(&mut self.camera,delta.x,delta.y);
-                        changed=true;
+                        let do_pan=if using_middle {shift}
+                            else{self.nav_tool==NavigationTool::Pan};
+                        changed|=if do_pan{
+                            pan(&mut self.camera,delta.x,delta.y,rect.height())
+                        }else{
+                            orbit(&mut self.camera,delta.x,delta.y)
+                        };
                     }
                 }
                 if response.hovered(){
                     let scroll=ui.input(|i|i.raw_scroll_delta.y);
                     if scroll.abs()>0.0{
-                        zoom(&mut self.camera,scroll);
-                        changed=true;
+                        changed|=zoom(&mut self.camera,scroll);
                     }
                 }
                 if changed{self.invalidate();}
@@ -448,8 +483,16 @@ impl StudioApp {
     }
     fn schedule(&mut self){
         match self.view{
-            ViewMode::Solid=>self.start_solid(),
-            ViewMode::Live=>self.start_live(),
+            ViewMode::Solid=>{
+                if self.last_edit.elapsed()>=Duration::from_millis(75){
+                    self.start_solid();
+                }
+            }
+            ViewMode::Live=>{
+                if self.last_edit.elapsed()>=Duration::from_millis(160){
+                    self.start_live();
+                }
+            },
             ViewMode::Final=>{},
         }
     }
@@ -468,26 +511,6 @@ fn preview_size(settings:RenderSettings,max_width:u32)->(u32,u32){
     let aspect=settings.height as f32/settings.width.max(1) as f32;
     let height=(width as f32*aspect).round().clamp(1.0,max_width as f32) as u32;
     (width,height)
-}
-fn orbit(camera:&mut CameraSettings,dx:f32,dy:f32){
-    let d=camera.origin-camera.target;
-    let radius=d.length_squared().sqrt().max(0.1);
-    let yaw=d.y.atan2(d.x)-dx*0.008;
-    let pitch=((d.z/radius).clamp(-1.0,1.0).asin()+dy*0.008).clamp(-1.53,1.53);
-    camera.origin=camera.target+Vec3::new(
-        radius*pitch.cos()*yaw.cos(),
-        radius*pitch.cos()*yaw.sin(),
-        radius*pitch.sin()
-    );
-}
-fn zoom(camera:&mut CameraSettings,scroll:f32){
-    let distance=camera.origin-camera.target;
-    let multiplier=(-scroll*0.0015).exp();
-    let radius=distance.length_squared().sqrt();
-    let clamped=(radius*multiplier).clamp(0.2,120.0);
-    if let Some(normal)=distance.normalized(){
-        camera.origin=camera.target+normal*clamped;
-    }
 }
 impl eframe::App for StudioApp {
     fn update(&mut self,ctx:&egui::Context,_frame:&mut eframe::Frame){

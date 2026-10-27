@@ -13,3 +13,6 @@ pub mod desktop;
 
 #[path="desktop/preview.rs"]
 pub mod preview;
+
+#[path="desktop/navigation.rs"]
+pub mod navigation;

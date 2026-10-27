@@ -6,6 +6,7 @@
 
 use std::f32::consts::PI;
 use std::thread;
+use std::sync::atomic::{AtomicU64,Ordering};
 use crate::bvh::Bvh;
 use crate::kernel::geometry::{Ray, Triangle};
 use crate::util::hash::hash_uint3;
@@ -543,6 +544,13 @@ pub fn render_rgb(scene:&Scene,settings:RenderSettings)->Result<Vec<u8>,&'static
 pub fn render_rgb_with_camera(
     scene:&Scene,settings:RenderSettings,camera_settings:CameraSettings
 )->Result<Vec<u8>,&'static str>{
+    render_rgb_with_camera_checked(scene,settings,camera_settings,None)
+}
+/// Realtime previews may abandon stale CPU work when camera or materials change.
+fn render_rgb_with_camera_checked(
+    scene:&Scene,settings:RenderSettings,camera_settings:CameraSettings,
+    cancellation:Option<(&AtomicU64,u64)>
+)->Result<Vec<u8>,&'static str>{
     let settings=settings.validate()?;
     let width=settings.width as usize;
     let height=settings.height as usize;
@@ -557,6 +565,9 @@ pub fn render_rgb_with_camera(
                 for (local_y,row) in chunk.chunks_exact_mut(width*3).enumerate(){
                     let y=(base_y+local_y) as u32;
                     for (x,pixel) in row.as_chunks_mut::<3>().0.iter_mut().enumerate(){
+                        if x%16==0 && cancellation.is_some_and(|(epoch,expected)|
+                            epoch.load(Ordering::Relaxed)!=expected
+                        ){return;}
                         let mut sum=Vec3::ZERO;
                         for s in 0..settings.samples{
                             let mut rng=Rng::new(y.wrapping_mul(settings.width).wrapping_add(x as u32),s,settings.seed);
@@ -572,6 +583,9 @@ pub fn render_rgb_with_camera(
             });
         }
     });
+    if cancellation.is_some_and(|(epoch,expected)|
+        epoch.load(Ordering::Relaxed)!=expected
+    ){return Err("Realtime preview superseded");}
     Ok(bytes)
 }
 
@@ -646,4 +660,28 @@ pub fn render_rgb_denoised_with_camera(
     if strength==0{return Ok(rgb);}
     let guides=pixel_guides_with_camera(scene,settings,camera)?;
     crate::film::denoise::denoise_rgb(&rgb,settings.width,settings.height,&guides,strength)
+}
+
+
+/// Lightweight preview rendering with immediate cancellation on navigation.
+/// Performs the same shading as a full image but stops stale work rather than
+/// waiting for a complete 8-spp pass every time the camera changes.
+pub fn render_rgb_denoised_with_camera_cancellable(
+    scene:&Scene, settings:RenderSettings,camera:CameraSettings,
+    strength:u8, generation:&AtomicU64,expected:u64,
+)->Result<Vec<u8>,&'static str>{
+    let rgb=render_rgb_with_camera_checked(
+        scene,settings,camera,Some((generation,expected))
+    )?;
+    if generation.load(Ordering::Relaxed)!=expected{
+        return Err("Realtime preview superseded");
+    }
+    if strength==0{return Ok(rgb);}
+    let guides=pixel_guides_with_camera(scene,settings,camera)?;
+    if generation.load(Ordering::Relaxed)!=expected{
+        return Err("Realtime preview superseded");
+    }
+    crate::film::denoise::denoise_rgb(
+        &rgb,settings.width,settings.height,&guides,strength
+    )
 }
