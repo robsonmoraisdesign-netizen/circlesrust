@@ -49,3 +49,12 @@ O renderer agora utiliza uma geração atômica compartilhada para identificar i
 As prévias têm debounce de 75 ms (sólida) e 160 ms (tempo real), para não disputar CPU durante cada movimento do mouse. O tamanho padrão do viewport sólido foi reduzido de 680 para 580 pixels de largura e a prévia ray-traced de 420 para 360; as amostras progressivas foram reduzidas de 1→3→8 para 1→2→4. Isso aumenta a responsividade ao custo de resolução/qualidade **apenas da pré-visualização**, sem alterar a resolução, qualidade nem amostras escolhidas para o render final.
 
 O custo total ainda depende da complexidade da malha OBJ e da CPU; não foram implementados rasterização GPU ou sistemas completos de viewport de Blender.
+
+
+## Seleção por geometria e F para enquadrar
+
+O motor armazena triangle_objects e object_names separados de triangle_materials. No OBJ, comandos o/g definem as regiões reconhecidas como objetos/grupos; na cena de estúdio, os modelos procedurais recebem IDs definidos na montagem. Ao clicar dentro dos pixels realmente exibidos (respeitando a área com letterbox), o aplicativo lança um raio correspondente à câmera e seleciona o triângulo mais próximo usando a BVH original. A seleção pode ser alterada pelo painel Objetos.
+
+A aba Ambiente 3D destaca a região selecionada em âmbar, sem modificar a cor ou os materiais utilizados pelo render final. O atalho F ou botão Enquadrar selecionado reposiciona a câmera para o bounding box da geometria selecionada. As abas e os controles Pan/Órbita/Zoom permanecem independentes da seleção.
+
+O HTML não é executado nem compilado pelo programa Rust, e foi preservado sem modificação. O novo .gitattributes configura ui/*.html como linguist-documentation, alterando apenas a classificação de linguagem no GitHub.

@@ -10,6 +10,7 @@ on:
       - feat/native-rust-desktop-studio
       - feat/interactive-preview-realtime-ui
       - feat/pan-navigation-fast-preview
+      - feat/scene-object-selection-focus-ui
   pull_request:
 jobs:
   test:
