@@ -469,7 +469,7 @@ impl StudioApp {
                 ui.add(egui::Slider::new(&mut self.denoise,0..=5).text("Denoise"));
             }
             let space=ui.available_size();
-            let (rect,response)=ui.allocate_exact_size(space,egui::Sense::drag());
+            let (rect,response)=ui.allocate_exact_size(space,egui::Sense::click_and_drag());
             let painter=ui.painter_at(rect);
             painter.rect_filled(rect,0.0,self.colors.canvas);
             let texture=match self.view {
