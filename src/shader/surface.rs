@@ -8,9 +8,9 @@ use crate::integrator::Material;
 
 #[derive(Clone,Debug,Default)]
 pub struct SurfaceMaps {
-    /// Linear non-color texture channel R multiplies material roughness.
+    /// Linear non-color channel R replaces constant roughness when mapped.
     pub roughness: Option<ImageTexture>,
-    /// Linear non-color texture channel R multiplies material metallic.
+    /// Linear non-color channel R replaces constant metallic when mapped.
     pub metallic: Option<ImageTexture>,
     /// Tangent-space normal XYZ in 0..1, OpenGL (+Y) convention.
     pub normal: Option<ImageTexture>,
@@ -18,10 +18,10 @@ pub struct SurfaceMaps {
 impl SurfaceMaps {
     pub fn resolved_material(&self,mut mat:Material,uv:Uv)->Material{
         if let Some(map)=&self.roughness{
-            mat.roughness=(mat.roughness*map.sample(uv).x).clamp(0.045,1.0);
+            mat.roughness=map.sample(uv).x.clamp(0.045,1.0);
         }
         if let Some(map)=&self.metallic{
-            mat.metallic=(mat.metallic*map.sample(uv).x).clamp(0.0,1.0);
+            mat.metallic=map.sample(uv).x.clamp(0.0,1.0);
         }
         mat
     }
