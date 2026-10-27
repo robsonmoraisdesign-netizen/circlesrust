@@ -2,11 +2,13 @@
 //! Visual appearance lives in this single theme module, not in view controls.
 //! Tokens reference the approved HTML RV Studio Render visual design.
 use eframe::egui::{self,Color32};
+use crate::util::math::Vec3;
 
 #[derive(Clone,Copy)]
 pub struct Tokens {
     pub dark:bool,
     pub accent:Color32,
+    pub selection_tint:Vec3,
     pub muted:Color32,
     pub panel:Color32,
     pub canvas:Color32,
@@ -45,6 +47,7 @@ impl Tokens {
         };
         Self{
             dark,accent,muted,panel,canvas,positive,
+            selection_tint:Vec3::new(0.95,0.57,0.11),
             left_width:258.0,right_width:305.0,camera_height:170.0,
             top_height:92.0,gap:10.0,padding:16.0,brand_size:15.0,
             min_side:185.0,max_side:420.0,min_center:360.0,

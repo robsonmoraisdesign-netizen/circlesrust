@@ -169,10 +169,11 @@ impl StudioApp {
         let revision=self.revision;
         let epoch=self.epoch.clone();
         let selected=self.selected_object;
+        let tint=self.colors.selection_tint;
         self.solid_busy=true;
         std::thread::spawn(move||{
             let result=preview::solid_preview_cancellable_highlight(
-                &snapshot.scene,camera,w,h,&epoch,revision,selected
+                &snapshot.scene,camera,w,h,&epoch,revision,selected,tint
             ).map(|bytes|(bytes,w,h)).map_err(str::to_owned);
             let _=tx.send(Report{job:Job::Solid,revision,output:None,result});
         });

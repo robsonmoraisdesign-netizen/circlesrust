@@ -1,5 +1,6 @@
 use std::sync::atomic::AtomicU64;
 use circlesrust::integrator::CameraSettings;
+use circlesrust::util::math::Vec3;
 use circlesrust::scene::{studio_scene,selection::object_bounds};
 use circlesrust::preview::{solid_preview_cancellable,solid_preview_cancellable_highlight};
 
@@ -11,7 +12,7 @@ fn highlight_changes_pixels_without_mutating_scene_or_final_material(){
     let camera=CameraSettings::default();
     let raw=solid_preview_cancellable(&scene,camera,60,40,&epoch,5).unwrap();
     let selected=solid_preview_cancellable_highlight(
-        &scene,camera,60,40,&epoch,5,Some(2)
+        &scene,camera,60,40,&epoch,5,Some(2),Vec3::new(0.95,0.57,0.11)
     ).unwrap();
     assert_ne!(raw,selected);
     assert_eq!(scene.materials.len(),before.len());
