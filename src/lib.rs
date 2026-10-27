@@ -10,3 +10,6 @@ pub mod shader;
 
 #[cfg(feature="desktop-ui")]
 pub mod desktop;
+
+#[path="desktop/preview.rs"]
+pub mod preview;

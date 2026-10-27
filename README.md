@@ -2,6 +2,15 @@
 
 **Motor original usado como referência:** [clonecircles](https://github.com/robsonmoraisdesign-netizen/clonecircles), branch `main`, commit `3eb35f85996baa6c1b2e19bf297b22745c85e321`. O repositório original é C/C++. Aqui a conversão é incremental: **ainda não existe um port completo do Cycles**.
 
+## Nova interface: Ambiente 3D, Tempo real e Render final
+
+A interface nativa Rust agora oferece três modos:
+- Ambiente 3D: prévia sólida dos triângulos da BVH antes de renderizar, com órbita e zoom;
+- Tempo real: path tracing CPU progressivo em resolução reduzida (1 → 3 → 8 amostras), atualizado ao alterar a cena;
+- Imagem final: render completo, com **Voltar ao ambiente** sem perder o render salvo.
+
+Painéis ajustáveis agora têm limites relativos ao tamanho da janela; os controles se adaptam com rolagem e quebra de linhas. Para orientações e ressalvas técnicas consulte [GUI_DESKTOP_RUST.md](docs/GUI_DESKTOP_RUST.md).
+
 ## Novo: aplicativo Windows com interface gráfica Rust
 
 O módulo experimental `circlesrust-studio.exe` agora possui interface desktop **egui/eframe (Rust)**, não só o utilitário CLI. A organização segue as áreas do RV Studio Render aprovado: ambiente/objetos à esquerda, imagem central, câmera inferior e materiais à direita, com temas centralizados.

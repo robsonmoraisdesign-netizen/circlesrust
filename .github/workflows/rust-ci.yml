@@ -8,6 +8,7 @@ on:
       - feat/rust-uv-textures-shader-graph
       - feat/pbr-texture-channels-normals
       - feat/native-rust-desktop-studio
+      - feat/interactive-preview-realtime-ui
   pull_request:
 jobs:
   test:

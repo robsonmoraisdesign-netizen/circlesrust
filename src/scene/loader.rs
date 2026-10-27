@@ -19,6 +19,7 @@ impl SceneLoadOptions {
         Self{environment_strength:1.0,..Self::default()}
     }
 }
+#[derive(Clone)]
 pub struct LoadedScene {
     pub scene:Scene,
     pub material_names:Vec<String>,

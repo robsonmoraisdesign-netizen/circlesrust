@@ -91,6 +91,7 @@ impl RectLight {
     }
 }
 
+#[derive(Clone)]
 pub struct Scene {
     pub bvh: Bvh,
     pub triangle_materials: Vec<usize>,

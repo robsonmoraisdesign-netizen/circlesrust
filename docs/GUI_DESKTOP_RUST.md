@@ -1,52 +1,32 @@
-# RV Studio Render — primeira interface desktop nativa Rust
+# RV Studio Render — pré-visualização e layout responsivo em Rust
 
-## Como usar no Windows
+## Principais correções
 
-Na aba GitHub **Actions**, selecione a última execução bem-sucedida e baixe o pacote `RV-Studio-CirclesRust-Windows-Desktop`. Extraia e inicie `circlesrust-studio.exe` por duplo clique.
+**Ambiente 3D**: a janela inicia mostrando geometria real da BVH (OBJ ou cena procedural), colorida por material e iluminada rapidamente. Não exige executar o render final. Clique e arraste com o botão esquerdo para orbitar; role o mouse sobre a visualização para ampliar/reduzir.
 
-A interface não exige que o usuário localize Blender, LuxCore ou outro motor externo. O renderizador CPU atual está vinculado diretamente ao mesmo processo do aplicativo.
+**Tempo real**: pré-visualização de path tracing **CPU**, atualizada automaticamente após mudanças na câmera, materiais ou luzes. Faz três etapas de refinamento com 1, 3 e 8 amostras por pixel em resolução reduzida. Isto **não é um viewport GPU nem taxas de quadros de jogos**. Quando há mudança durante um cálculo, o resultado obsoleto é descartado e o cálculo atualizado entra na sequência.
 
-## Layout
+**Imagem final**: o comando RENDERIZAR preserva a imagem final em resolução configurada e salva PNG/BMP. Enquanto o render está em andamento, pode clicar em **Voltar ao ambiente** para visualizar e ajustar a cena. A imagem final permanece disponível em sua aba quando concluída.
 
-Baseado na referência `ui/RV_Studio_Render_Layout_Corrigido.html`:
-- Barra superior com `RENDERIZAR`, resolução, amostras e tema;
-- Esquerda: ambiente HDR, luz e outliner/importação OBJ/MTL;
-- Centro: imagem real calculada (preview após render), configuração do arquivo de saída, amostras/ressaltos;
-- Direita: propriedades de materiais (cor, metalicidade, rugosidade);
-- Inferior: posição da câmera, alvo, FOV e exposição;
-- Status inferior mostra andamento e o caminho da imagem produzida.
+**Painéis**: larguras laterais são limitadas conforme o tamanho atual da janela; altura do painel de câmera tem limites; controles usam disposição com quebra de linha e scroll vertical nas laterais. O viewport mantém a proporção da imagem ao redimensionar, sem cortar ou esticar.
 
-A identidade visual usa `src/desktop/theme.rs` como o **módulo central de aparência**; elementos da UI não definem suas próprias cores. O tema claro/escuro é selecionável.
+**Temas**: cores e dimensões são controladas exclusivamente em `src/desktop/theme.rs`.
 
-## Caminho de renderização real
+## Instalação
 
-1. O usuário informa uma malha OBJ, opcionalmente MTL, e um HDR.
-2. `src/scene/loader.rs` importa geometria, texturas, mapas PBR e configura o ambiente.
-3. Parâmetros de materiais, luz e câmera alterados na interface são aplicados ao `Scene` Rust.
-4. O botão Renderizar executa `render_rgb_denoised_with_camera` em uma thread de CPU.
-5. A aplicação exibe os pixels RGB devolvidos pelo motor e escreve PNG ou BMP no caminho informado.
-
-## Compilação
+Na última execução bem-sucedida em Actions, baixar artifact **RV-Studio-CirclesRust-Windows-Desktop** e executar `circlesrust-studio.exe`.
 
 ~~~powershell
 cargo build --release --features desktop-ui --bin circlesrust-studio
-.\target\release\circlesrust-studio.exe
 ~~~
 
-A ferramenta CLI antiga continua disponível:
+O aplicativo integra o renderizador Rust no mesmo processo, sem depender de pasta externa do Blender ou LuxCore.
 
-~~~powershell
-cargo build --release --bin circlesrust-preview
-~~~
+## Limitações honestas
 
-## Limitações desta etapa
-
-- **A região central ainda é uma prévia de pixels renderizados**, não um viewport 3D de modelagem em tempo real com seleção e transformações.
-- Renderização via **CPU**: ainda não existe dispositivo GPU Cycles portado/integrado ao executável Rust.
-- Não há gerenciador de projetos nem editor de nós visual; materiais importados do MTL podem conter texturas PBR, e alterações de cor base em material com mapa podem precisar recarregar o material para recomputar o nó de textura.
-- O caminho para OBJ/HDR/MTL é informado em campos de texto (a janela ainda não tem file picker).
-- A aplicação tem uma única cena carregada de cada vez; o outliner representa os materiais de cena e o modelo importado, não uma árvore de objetos paramétrica.
-- Progressão durante render: exibe estado ocupado, não porcentagem por amostra. O cálculo ocorre em uma thread de CPU de fundo enquanto a interface continua responsiva.
-- A aparência segue a divisão aprovada, mas **não é uma réplica pixel a pixel** do HTML de referência.
-
-O software está sendo implementado em Rust. O original C++ do Cycles serve como referência, **não como binário compilado** neste projeto.
+- Modo Ambiente: **CPU raycast** pela BVH existente, não rasterização por GPU.
+- Modo Tempo real: **path tracing CPU progressivo em baixa resolução**, não atualização a 30/60 FPS nem render GPU acelerado. A cada refinamento o atual integrador reexecuta a amostragem, sem reutilizar accumulation buffers.
+- Modelo e iluminação continuam com as limitações de shading da migração parcial do Cycles.
+- A pré-visualização por material mostra faces trianguladas importadas, mas a lista lateral ainda usa materiais/arquivo como agrupadores; não existe ainda seleção de objeto diretamente na malha nem gizmos de transformação.
+- Durante um render completo, a imagem é gravada a partir de um snapshot da cena. É possível voltar ao ambiente enquanto processa; mudanças posteriores não alteram o render que já iniciou.
+- CPU e C++: todo código executável desenvolvido até aqui é Rust; o Cycles C++ é referência e não está integrado.
