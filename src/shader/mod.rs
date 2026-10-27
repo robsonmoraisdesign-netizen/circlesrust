@@ -70,6 +70,48 @@ impl ImageTexture {
             .to_rgb8();
         Self::from_rgb8_with_space(data.width(),data.height(),data.as_raw(),space)
     }
+    /// Linear RGB float samples, including HDR values above one.
+    pub fn from_rgb32f(width:u32,height:u32,values:&[f32])->Result<Self,String>{
+        let count=(width as usize).checked_mul(height as usize).ok_or("HDR size overflow")?;
+        if count==0||width>16384||height>16384||values.len()!=count*3
+            ||values.iter().any(|x|!x.is_finite()||*x<0.0){
+            return Err("Invalid RGB32F texture".into());
+        }
+        let pixels=values.as_chunks::<3>().0.iter()
+            .map(|p|Vec3::new(p[0],p[1],p[2])).collect();
+        Ok(Self{width:width as usize,height:height as usize,pixels})
+    }
+    pub fn load_environment(path:impl AsRef<Path>)->Result<Self,String>{
+        let p=path.as_ref();
+        if p.extension().and_then(|e|e.to_str())
+            .is_some_and(|e|e.eq_ignore_ascii_case("hdr")){
+            let img=image::open(p).map_err(|e|format!("HDR decode {}: {e}",p.display()))?
+                .to_rgb32f();
+            Self::from_rgb32f(img.width(),img.height(),img.as_raw())
+        }else{
+            Self::load(p)
+        }
+    }
+    /// Latitude/longitude world lookup. Wraps U, clamps V at poles.
+    pub fn sample_latlong(&self,dir:Vec3)->Vec3{
+        let Some(d)=dir.normalized() else{return Vec3::ZERO;};
+        let u=(0.5+d.y.atan2(d.x)/(2.0*std::f32::consts::PI)).rem_euclid(1.0);
+        let v=d.z.clamp(-1.0,1.0).acos()/std::f32::consts::PI;
+        let x=u*self.width as f32-0.5;
+        let y=v*self.height as f32-0.5;
+        let x0=x.floor() as isize;
+        let y0=y.floor() as isize;
+        let t=x-x.floor();
+        let q=y-y.floor();
+        let wrap=|xx:isize|xx.rem_euclid(self.width as isize) as usize;
+        let clamp=|yy:isize|yy.clamp(0,self.height as isize-1) as usize;
+        let a=self.pixel(wrap(x0),clamp(y0))*(1.0-t)
+            +self.pixel(wrap(x0+1),clamp(y0))*t;
+        let b=self.pixel(wrap(x0),clamp(y0+1))*(1.0-t)
+            +self.pixel(wrap(x0+1),clamp(y0+1))*t;
+        a*(1.0-q)+b*q
+    }
+
     fn pixel(&self,x:usize,y:usize)->Vec3 {self.pixels[y*self.width+x]}
     /// Bilinear filtered, repeating U/V. Image pixels top-down, OBJ V bottom-up.
     pub fn sample(&self,uv:Uv)->Vec3 {
