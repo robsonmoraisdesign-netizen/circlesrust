@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 //! Wavefront OBJ static-triangle mesh import with material assignments.
-//! Supports vertex positions, optional vertex normals, triangles and polygon fans.
+//! Supports vertex positions, UVs, optional vertex normals, triangles and polygon fans.
 //! This does not implement Cycles' complete mesh/attribute/scene import.
 use crate::kernel::geometry::Triangle;
 use crate::util::math::Vec3;
+use crate::shader::Uv;
 
 #[derive(Debug)]
 pub struct ObjMesh {
     pub triangles: Vec<Triangle>,
     pub corner_normals: Vec<Option<[Vec3;3]>>,
+    pub corner_uvs: Vec<Option<[Uv;3]>>,
     /// Material name for each valid triangulated face, if assigned by usemtl.
     pub face_materials: Vec<Option<String>>,
     /// mtllib references, for loading from the OBJ directory.
@@ -37,8 +39,10 @@ impl ObjMesh {
     pub fn parse(src:&str)->Result<Self,String>{
         let mut vertices=Vec::new();
         let mut normals=Vec::new();
+        let mut texcoords=Vec::new();
         let mut triangles=Vec::new();
         let mut corner_normals=Vec::new();
+        let mut corner_uvs=Vec::new();
         let mut face_materials=Vec::new();
         let mut material_libraries=Vec::new();
         let mut current_material:Option<String>=None;
@@ -48,6 +52,15 @@ impl ObjMesh {
             let Some(tag)=parts.next() else{continue;};
             match tag {
                 "v"=>vertices.push(vector3(parts,number)?),
+                "vt"=>{
+                    let u=parts.next().ok_or_else(||format!("line {number}: missing UV U"))?
+                        .parse::<f32>().map_err(|_|format!("line {number}: invalid UV U"))?;
+                    let v=parts.next().ok_or_else(||format!("line {number}: missing UV V"))?
+                        .parse::<f32>().map_err(|_|format!("line {number}: invalid UV V"))?;
+                    let uv=Uv::new(u,v);
+                    if !uv.valid(){return Err(format!("line {number}: invalid UV"));}
+                    texcoords.push(uv);
+                },
                 "vn"=>normals.push(vector3(parts,number)?.normalized()
                     .ok_or_else(||format!("line {number}: zero-length normal"))?),
                 "mtllib"=>{
@@ -65,23 +78,31 @@ impl ObjMesh {
                         let fields:Vec<_>=token.split('/').collect();
                         if fields.len()>3 {return Err(format!("line {number}: invalid face token"));}
                         let position=vertex_index(fields[0],vertices.len(),number)?;
+                        let uv=fields.get(1).filter(|s|!s.is_empty()).map(|s|{
+                            vertex_index(s,texcoords.len(),number)
+                        }).transpose()?;
                         let normal=fields.get(2).filter(|s|!s.is_empty()).map(|s|{
                             vertex_index(s,normals.len(),number)
                         }).transpose()?;
-                        indices.push((position,normal));
+                        indices.push((position,uv,normal));
                     }
                     if indices.len()<3{return Err(format!("line {number}: face needs 3 vertices"));}
                     // Fan triangulation: reliable for convex polygon faces.
                     for j in 1..indices.len()-1{
                         let face=[indices[0],indices[j],indices[j+1]];
-                        let xyz=face.map(|(idx,_)|vertices[idx]);
+                        let xyz=face.map(|(idx,_,_)|vertices[idx]);
                         let Some(tri)=Triangle::new(xyz[0],xyz[1],xyz[2]) else{continue;};
-                        let smooth=match (face[0].1,face[1].1,face[2].1){
+                        let smooth=match (face[0].2,face[1].2,face[2].2){
                             (Some(a),Some(b),Some(c))=>Some([normals[a],normals[b],normals[c]]),
+                            _=>None,
+                        };
+                        let tex=match (face[0].1,face[1].1,face[2].1){
+                            (Some(a),Some(b),Some(c))=>Some([texcoords[a],texcoords[b],texcoords[c]]),
                             _=>None,
                         };
                         triangles.push(tri);
                         corner_normals.push(smooth);
+                        corner_uvs.push(tex);
                         face_materials.push(current_material.clone());
                     }
                 },
@@ -89,7 +110,7 @@ impl ObjMesh {
             }
         }
         if triangles.is_empty(){return Err("OBJ has no valid triangles".into());}
-        Ok(Self{triangles,corner_normals,face_materials,material_libraries})
+        Ok(Self{triangles,corner_normals,corner_uvs,face_materials,material_libraries})
     }
 
     /// Uniformly fit imported geometry near the studio camera's focal point.

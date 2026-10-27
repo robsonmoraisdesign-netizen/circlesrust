@@ -2,6 +2,20 @@
 
 **Motor original usado como referência:** [clonecircles](https://github.com/robsonmoraisdesign-netizen/clonecircles), branch `main`, commit `3eb35f85996baa6c1b2e19bf297b22745c85e321`. O repositório original é C/C++. Aqui a conversão é incremental: **ainda não existe um port completo do Cycles**.
 
+## Nova etapa — UV, texturas e nós de cor nativos em Rust
+
+Agora a malha OBJ preserva coordenadas UV (vt e f v/vt/vn) e os arquivos MTL podem referenciar mapas de cor map_Kd. Texturas PNG, JPEG e PNM são carregadas em memória, convertidas de sRGB para RGB linear e filtradas bilinearmente nas coordenadas UV de cada interseção.
+
+Um primeiro grafo de nós de cor totalmente em Rust permite combinar Constant, Image, Checker, Multiply e Mix. Para map_Kd, uma cadeia Constant(Kd) x Image modula a cor base. O shader é avaliado a cada hit de raio, não apenas na importação.
+
+~~~powershell
+.\circlesrust-preview.exe ModeloTexturizado.png 1280 720 128 --obj meu_modelo.obj --denoise 3
+~~~
+
+Se o OBJ possuir mtllib meu_modelo.mtl e o MTL possuir map_Kd textura.png, o arquivo da textura é localizado relativamente ao MTL, sem configurar diretórios externos do motor.
+
+**Limitações:** não é o shader graph completo do Blender Cycles. Ainda faltam Principled BSDF, normal/roughness maps, transmissões, mapas HDRI, shader nodes procedurais avançados, OSL/SVM, GPU e mipmapping. O filtro bilinear usa texturas com repetição UV, sem derivadas nem filtragem anisotrópica.
+
 ## Fase atual — BVH SAH e materiais OBJ/MTL em Rust
 
 - **BVH SAH:** a divisão por mediana foi substituída por amostragem em 16 bins e avaliação de custo de área superficial nos três eixos, seguindo a estrutura de `clonecircles/src/bvh/binning.cpp`. Se a partição degenerar, o algoritmo continua com fallback por mediana.

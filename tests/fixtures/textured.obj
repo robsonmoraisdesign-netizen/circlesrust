@@ -1,0 +1,12 @@
+# OBJ UV quad for texture tests
+mtllib textured.mtl
+v -1.2 -1.2 0.0
+v 1.2 -1.2 0.0
+v 1.2 1.2 0.0
+v -1.2 1.2 0.0
+vt 0 0
+vt 1 0
+vt 1 1
+vt 0 1
+usemtl print_color
+f 1/1 2/2 3/3 4/4

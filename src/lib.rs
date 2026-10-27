@@ -6,3 +6,4 @@ pub mod integrator;
 pub mod kernel;
 pub mod scene;
 pub mod util;
+pub mod shader;
