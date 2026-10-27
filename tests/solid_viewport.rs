@@ -8,7 +8,7 @@ fn solid_preview_shows_geometry_without_path_trace(){
     let scene=studio_scene();
     let a=solid_preview(&scene,CameraSettings::default(),64,40).unwrap();
     assert_eq!(a.len(),64*40*3);
-    assert!(a.chunks_exact(3).any(|v|v!=&a[0..3]));
+    assert!(a.as_chunks::<3>().0.iter().any(|v|v!=&[a[0],a[1],a[2]]));
     assert_eq!(a,solid_preview(&scene,CameraSettings::default(),64,40).unwrap());
     let changed=solid_preview(&scene,CameraSettings{
         origin:Vec3::new(-4.1,-7.6,3.65),..CameraSettings::default()
