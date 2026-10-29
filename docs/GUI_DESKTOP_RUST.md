@@ -67,3 +67,10 @@ Selecione um objeto ou grupo OBJ; use as propriedades do painel direito **Posiç
 O novo `src/scene/transform.rs` armazena os parâmetros por objeto, aplica a geometria de origem conservada, recalcula normais de vértice pela transformação inversa-transposta (escala e rotação) e regenera a BVH Rust para que o render final/preview realmente mostre as alterações. O OBJ continua com UV e materiais, preservados após o transform. O render já iniciado usa um snapshot inalterado.
 
 Sem GPU, sem instancing, sem negativo na escala, sem manipuladores interativos de eixos e sem histórico undo/redo persistente. A regeneração de BVH pode exigir otimização adicional em cenas maiores.
+
+
+## Histórico de transformação (Rust)
+
+Ctrl+Z desfaz, Ctrl+Shift+Z/Ctrl+Y refazem; botões Desfazer/Refazer ficam no painel de transformação. Os atalhos não interceptam campos de texto em edição. Cada arraste G/R/S ou de um campo numérico é agrupado em uma operação; Esc durante o arraste cancela e exige soltar o botão antes de outro gesto. Valores digitados são registrados quando o controle os aplica. Restaurar transformação também pode ser desfeito.
+
+O limite é 128 operações por sessão/cena, armazenadas como comandos pequenos; desfazer reconstrói a BVH a partir da malha original. Não é histórico de câmera, materiais ou importações, nem salvamento de projeto. Render final em andamento preserva seu snapshot.

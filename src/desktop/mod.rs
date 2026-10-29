@@ -19,6 +19,7 @@ use crate::util::math::Vec3;
 use crate::navigation::{orbit,pan,zoom};
 use crate::scene::selection::{pick,frame_object,object_bounds,project_point};
 use crate::scene::transform::ObjectTransform;
+use crate::scene::history::TransformHistory;
 use crate::desktop_transform::{EditTool,EditAxis,apply_drag};
 use theme::Tokens;
 
@@ -44,6 +45,8 @@ struct StudioApp {
     selected_object:Option<usize>,
     edit_tool:EditTool,edit_axis:EditAxis,
     nav_tool:NavigationTool,
+    history:TransformHistory,
+    suppress_gesture:bool,
     epoch:Arc<AtomicU64>,last_edit:Instant,
     solid:Option<egui::TextureHandle>,
     live:Option<egui::TextureHandle>,
@@ -73,6 +76,7 @@ impl StudioApp {
             selected_object:None,
             edit_tool:EditTool::Select,edit_axis:EditAxis::Free,
             nav_tool:NavigationTool::Orbit,
+            history:TransformHistory::default(),suppress_gesture:false,
             epoch:Arc::new(AtomicU64::new(1)),last_edit:Instant::now(),
             solid:None,live:None,final_image:None,
             solid_revision:None,live_revision:None,live_pass:0,
@@ -102,6 +106,7 @@ impl StudioApp {
                     loaded.source_label,loaded.scene.bvh.stats().triangles,
                     loaded.material_names.len());
                 self.scene=Some(Arc::new(loaded));
+                self.history=TransformHistory::default();
                 self.active_material=0;
                 self.selected_object=None;
                 self.final_image=None;
@@ -112,6 +117,7 @@ impl StudioApp {
         }
     }
     fn select_object(&mut self,id:usize){
+        self.history.finish();
         if let Some(loaded)=&self.scene{
             if id>=loaded.scene.object_names.len(){return;}
             if let Some((triangle,_))=loaded.scene.triangle_objects.iter()
@@ -133,11 +139,13 @@ impl StudioApp {
         }
     }
     fn commit_transform(&mut self,value:ObjectTransform){
+        if self.suppress_gesture{return;}
         let Some(id)=self.selected_object else{return;};
         let Some(scene)=self.scene.as_mut() else{return;};
-        let result=Arc::make_mut(scene).scene.apply_object_transform(id,value);
+        let result=self.history.apply(&mut Arc::make_mut(scene).scene,id,value);
         match result{
-            Ok(())=>{
+            Ok(false)=>{},
+            Ok(true)=>{
                 self.status="Geometria e BVH atualizadas — prévia e render usarão nova transformação.".into();
                 self.invalidate();
             }
@@ -145,7 +153,24 @@ impl StudioApp {
         }
     }
     fn reset_transform(&mut self){
+        self.history.finish();
         self.commit_transform(ObjectTransform::default());
+        self.history.finish();
+    }
+    fn history_action(&mut self,redo:bool,cancel:bool){
+        let Some(scene)=self.scene.as_mut() else{return;};
+        let scene=&mut Arc::make_mut(scene).scene;
+        let result=if cancel{self.history.cancel(scene)}
+            else if redo{self.history.redo(scene)}else{self.history.undo(scene)};
+        match result{
+            Ok(Some(id))=>{
+                self.select_object(id);
+                self.status=if cancel{"Transformação cancelada."}
+                    else if redo{"Transformação refeita."}else{"Transformação desfeita."}.into();
+            }
+            Ok(None)=>{},
+            Err(err)=>self.status=format!("Não foi possível restaurar: {err}"),
+        }
     }
     fn launch_final(&mut self){
         if self.final_busy {
@@ -425,6 +450,14 @@ impl StudioApp {
                     ui.label("Alterações são mostradas no modo Ambiente e Tempo real.");
                     ui.separator();
                     ui.heading("Transformação do objeto");
+                    ui.horizontal_wrapped(|ui|{
+                        if ui.add_enabled(self.history.can_undo(),egui::Button::new("Desfazer")).clicked(){
+                            self.history_action(false,false);
+                        }
+                        if ui.add_enabled(self.history.can_redo(),egui::Button::new("Refazer")).clicked(){
+                            self.history_action(true,false);
+                        }
+                    });
                     if let Some(id)=self.selected_object{
                         if let Some(mut t)=self.scene.as_ref()
                             .and_then(|s|s.scene.object_transforms.get(id).copied()){
@@ -587,7 +620,7 @@ impl StudioApp {
                         }
                     }
                 }
-                if response.hovered() && !ui.ctx().wants_keyboard_input(){
+                if response.hovered() && !ui.ctx().wants_keyboard_input() && !ui.input(|i|i.modifiers.command){
                     if ui.input(|i|i.key_pressed(egui::Key::G)){self.edit_tool=EditTool::Move;}
                     if ui.input(|i|i.key_pressed(egui::Key::R)){self.edit_tool=EditTool::Rotate;}
                     if ui.input(|i|i.key_pressed(egui::Key::S)){self.edit_tool=EditTool::Scale;}
@@ -616,7 +649,7 @@ impl StudioApp {
                 let using_middle=response.dragged_by(egui::PointerButton::Middle);
                 let using_primary=response.dragged_by(egui::PointerButton::Primary);
                 let shift=ui.input(|i|i.modifiers.shift);
-                if using_middle||using_primary{
+                if (using_middle||using_primary) && !self.suppress_gesture{
                     let delta=ui.input(|i|i.pointer.delta());
                     if delta.length_sq()>0.0{
                         let editing=using_primary && self.selected_object.is_some()
@@ -688,6 +721,20 @@ fn preview_size(settings:RenderSettings,max_width:u32)->(u32,u32){
 impl eframe::App for StudioApp {
     fn update(&mut self,ctx:&egui::Context,_frame:&mut eframe::Frame){
         self.receive(ctx);
+        let pointer_down=ctx.input(|i|i.pointer.primary_down());
+        if !pointer_down{self.suppress_gesture=false;}
+        // Escape cancels a gesture even if its pointer has left the viewport.
+        if self.history.is_editing() && ctx.input(|i|i.key_pressed(egui::Key::Escape)){
+            self.history_action(false,true);
+            self.suppress_gesture=pointer_down;
+        }
+        if !ctx.wants_keyboard_input() && !pointer_down{
+            let redo=ctx.input_mut(|i|i.consume_key(egui::Modifiers::COMMAND.plus(egui::Modifiers::SHIFT),egui::Key::Z)
+                ||i.consume_key(egui::Modifiers::COMMAND,egui::Key::Y));
+            let undo=ctx.input_mut(|i|i.consume_key(egui::Modifiers::COMMAND,egui::Key::Z));
+            if redo{self.history_action(true,false);}
+            else if undo{self.history_action(false,false);}
+        }
         self.top(ctx);
         egui::TopBottomPanel::bottom("rv_status").show(ctx,|ui|{
             ui.horizontal_wrapped(|ui|{
@@ -700,6 +747,7 @@ impl eframe::App for StudioApp {
         self.left(ctx);
         self.right(ctx);
         self.center(ctx);
+        if !pointer_down{self.history.finish();}
         self.schedule();
         if self.solid_busy||self.live_busy||self.final_busy{
             ctx.request_repaint_after(Duration::from_millis(75));

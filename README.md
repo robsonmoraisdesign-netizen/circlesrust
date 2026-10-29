@@ -2,9 +2,19 @@
 
 **Motor original usado como referência:** [clonecircles](https://github.com/robsonmoraisdesign-netizen/clonecircles), branch `main`, commit `3eb35f85996baa6c1b2e19bf297b22745c85e321`. O repositório original é C/C++. Aqui a conversão é incremental: **ainda não existe um port completo do Cycles**.
 
+## Histórico de transformações — nova etapa
+
+- **Ctrl+Z** desfaz; **Ctrl+Shift+Z** ou **Ctrl+Y** refaz. Há botões no painel de transformação.
+- Cada arraste no viewport ou nos valores numéricos forma uma única operação. **Esc durante o arraste** restaura a transformação inicial; o movimento fica bloqueado até soltar o botão.
+- Posição, rotação, escala e restauração do objeto atualizam a geometria, as normais e a BVH também ao desfazer/refazer.
+- O histórico armazena até 128 operações, apenas valores de transformação, sem duplicar malhas. Uma edição confirmada após desfazer inicia um novo histórico de refazer.
+- Ao carregar outra cena com sucesso, o histórico anterior é limpo. Falha na importação preserva a cena e seu histórico.
+
+O histórico é de **transformações nesta sessão**: não inclui materiais, câmera, importações nem salvamento em disco. O render final em andamento continua usando sua própria cena congelada. GPU e handles de gizmo interativos continuam pendentes.
+
 ## Objetos transformáveis em Rust — posição, rotação e escala
 
-A próxima etapa oferece alterações **reais de malha**: escolha um objeto no viewport ou no painel esquerdo e edite a posição XYZ, rotação Euler XYZ e escala XYZ no painel direito. O motor aplica os valores aos triângulos, recalcula normais suaves com a transformação inversa da escala e reconstrói a BVH. Os materiais, as UVs, outros objetos e a cena original são preservados.
+Esta etapa oferece alterações **reais de malha**: escolha um objeto no viewport ou no painel esquerdo e edite a posição XYZ, rotação Euler XYZ e escala XYZ no painel direito. O motor aplica os valores aos triângulos, recalcula normais suaves com a transformação inversa da escala e reconstrói a BVH. Os materiais, as UVs, outros objetos e a cena original são preservados.
 
 No viewport, escolha as ferramentas Mover, Girar e Escala. Atalhos G/R/S também selecionam cada ferramenta; X, Y ou Z limitam o eixo. Arraste com botão esquerdo para transformar o objeto selecionado. Botão do meio continua orbitando, Shift+meio faz pan e a roda faz zoom. As três linhas XYZ são **indicadores de eixo projetados na câmera**, ainda não handles interativos individuais com snapping. Há botão para restaurar a transformação do objeto.
 
@@ -27,7 +37,7 @@ No modo **Ambiente 3D**:
 
 A BVH passou a usar uma pilha local de tamanho fixo para travessia, evitando uma alocação de heap por chamada de interseção. O limite atual do construtor é profundidade 64 e a pilha tem 128 posições. Testes geométricos existentes continuam sendo a medida de equivalência; não há benchmark de ganho de tempo reivindicado.
 
-A seleção usa IDs de objetos/grupos OBJ; não cria transformações locais editáveis, hierarquia de objetos Blender nem gizmos. O motor ainda usa CPU e não possui viewport rasterizado em GPU.
+A seleção usa IDs de objetos/grupos OBJ; as transformações estão descritas acima. Hierarquia de objetos Blender e handles de gizmo interativos continuam pendentes. O motor ainda usa CPU e não possui viewport rasterizado em GPU.
 
 ## Pan e navegação responsiva (novo)
 
