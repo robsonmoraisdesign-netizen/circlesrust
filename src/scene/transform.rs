@@ -65,13 +65,26 @@ impl Scene{
             let object=self.triangle_objects[i];
             let transform=transforms[object];
             let pivot=self.object_pivots[object];
-            let a=transform.point(base.a,pivot);
-            let b=transform.point(base.b,pivot);
-            let c=transform.point(base.c,pivot);
-            triangles.push(Triangle::new(a,b,c).ok_or("Degenerate transformed triangle")?);
-            normals.push(self.base_corner_normals[i].map(|n|
-                n.map(|value|transform.normal(value))
-            ));
+            if transform==ObjectTransform::default(){
+                // Preserve exact source bits for untouched objects and reset.
+                // Re-centering with f32 would otherwise perturb tiny pole faces.
+                triangles.push(*base);
+                normals.push(self.base_corner_normals[i]);
+            }else{
+                let a=transform.point(base.a,pivot);
+                let b=transform.point(base.b,pivot);
+                let c=transform.point(base.c,pivot);
+                if !a.is_finite()||!b.is_finite()||!c.is_finite(){
+                    return Err("Nonfinite transformed geometry");
+                }
+                // Extremely small triangles may collapse in f32 under translation.
+                // Keep their indices for UV/material mapping; BVH skips zero-area
+                // faces instead of aborting the entire object edit.
+                triangles.push(Triangle{a,b,c});
+                normals.push(self.base_corner_normals[i].map(|n|
+                    n.map(|value|transform.normal(value))
+                ));
+            }
         }
         self.bvh=Bvh::build(triangles);
         self.corner_normals=normals;
