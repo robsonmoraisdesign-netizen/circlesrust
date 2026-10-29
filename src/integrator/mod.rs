@@ -7,7 +7,8 @@
 use std::f32::consts::PI;
 use std::thread;
 use std::sync::atomic::{AtomicU64,Ordering};
-use crate::bvh::Bvh;
+use crate::bvh::{Bvh,Aabb};
+use crate::scene::transform::ObjectTransform;
 use crate::kernel::geometry::{Ray, Triangle};
 use crate::util::hash::hash_uint3;
 use crate::util::math::Vec3;
@@ -100,6 +101,11 @@ pub struct Scene {
     pub triangle_objects: Vec<usize>,
     /// Object identities independent of material slots.
     pub object_names: Vec<String>,
+    /// Transform and original geometry buffers for editable objects.
+    pub object_transforms: Vec<ObjectTransform>,
+    pub object_pivots: Vec<Vec3>,
+    pub base_triangles: Vec<Triangle>,
+    pub base_corner_normals: Vec<Option<[Vec3;3]>>,
     /// Per-triangle optional corner normals (aligned with input triangle indexing).
     /// Equivalent in intent to Cycles triangle_smooth_normal barycentric interpolation.
     pub corner_normals: Vec<Option<[Vec3; 3]>>,
@@ -129,14 +135,19 @@ impl Scene {
         {
             return Err("Invalid scene materials, triangle mapping or rectangle light");
         }
+        let base_triangles=triangles.clone();
         Ok(Self {
             bvh: Bvh::build(triangles),
+            base_triangles,
+            base_corner_normals:vec![None;triangle_materials.len()],
             corner_normals: vec![None; triangle_materials.len()],
             corner_uvs: vec![None; triangle_materials.len()],
             shader_graphs: vec![None; materials.len()],
             surface_maps: vec![SurfaceMaps::default();materials.len()],
             triangle_objects:vec![0;triangle_materials.len()],
             object_names:vec!["Cena".into()],
+            object_transforms:vec![ObjectTransform::default()],
+            object_pivots:vec![Vec3::ZERO],
             triangle_materials, materials,
             light, sky_strength: 1.0,
             environment_map: None,
@@ -150,6 +161,16 @@ impl Scene {
             ||objects.iter().any(|&id|id>=names.len()){
             return Err("Invalid triangle/object identity mapping");
         }
+        let mut bounds=vec![Aabb::empty();names.len()];
+        let mut counts=vec![0usize;names.len()];
+        for (i,&id) in objects.iter().enumerate(){
+            bounds[id].union(Aabb::for_triangle(&self.base_triangles[i]));
+            counts[id]+=1;
+        }
+        self.object_pivots=bounds.iter().zip(counts.iter())
+            .map(|(bound,count)|if *count==0{Vec3::ZERO}else{bound.center()})
+            .collect();
+        self.object_transforms=vec![ObjectTransform::default();names.len()];
         self.triangle_objects=objects;
         self.object_names=names;
         Ok(())
@@ -161,6 +182,7 @@ impl Scene {
             normals.iter().flatten().any(|ns| ns.iter().any(|n| !n.is_finite() || n.length_squared() <= 0.0)) {
             return Err("invalid corner normals");
         }
+        self.base_corner_normals=normals.clone();
         self.corner_normals = normals;
         Ok(())
     }
