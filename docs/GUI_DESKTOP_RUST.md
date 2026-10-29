@@ -58,3 +58,12 @@ O motor armazena triangle_objects e object_names separados de triangle_materials
 A aba Ambiente 3D destaca a região selecionada em âmbar, sem modificar a cor ou os materiais utilizados pelo render final. O atalho F ou botão Enquadrar selecionado reposiciona a câmera para o bounding box da geometria selecionada. As abas e os controles Pan/Órbita/Zoom permanecem independentes da seleção.
 
 O HTML não é executado nem compilado pelo programa Rust, e foi preservado sem modificação. O novo .gitattributes configura ui/*.html como linguist-documentation, alterando apenas a classificação de linguagem no GitHub.
+
+
+## Transformações de objeto em tempo de execução (Rust)
+
+Selecione um objeto ou grupo OBJ; use as propriedades do painel direito **Posição**, **Rotação XYZ (graus)** e **Escala XYZ** para editar valores ou restaurá-los. O modo de viewport agora oferece Mover (G), Girar (R), Escala (S) e seleção de eixo Livre/X/Y/Z. Arrastar com o botão esquerdo aplica a ferramenta atual ao objeto selecionado. Indicadores coloridos X/Y/Z são desenhados na pré-visualização como referência visual, **não ainda manipuladores clicáveis por eixo**. Navegação MMB, Shift+MMB e zoom permanecem.
+
+O novo `src/scene/transform.rs` armazena os parâmetros por objeto, aplica a geometria de origem conservada, recalcula normais de vértice pela transformação inversa-transposta (escala e rotação) e regenera a BVH Rust para que o render final/preview realmente mostre as alterações. O OBJ continua com UV e materiais, preservados após o transform. O render já iniciado usa um snapshot inalterado.
+
+Sem GPU, sem instancing, sem negativo na escala, sem manipuladores interativos de eixos e sem histórico undo/redo persistente. A regeneração de BVH pode exigir otimização adicional em cenas maiores.
