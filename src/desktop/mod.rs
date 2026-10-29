@@ -17,7 +17,9 @@ use crate::scene::loader::{load_scene,SceneLoadOptions,LoadedScene};
 use crate::film::save_image;
 use crate::util::math::Vec3;
 use crate::navigation::{orbit,pan,zoom};
-use crate::scene::selection::{pick,frame_object};
+use crate::scene::selection::{pick,frame_object,object_bounds,project_point};
+use crate::scene::transform::ObjectTransform;
+use crate::desktop_transform::{EditTool,EditAxis,apply_drag};
 use theme::Tokens;
 
 #[derive(Clone,Copy,PartialEq,Eq,Debug)]
@@ -40,6 +42,7 @@ struct StudioApp {
     scene:Option<Arc<LoadedScene>>,
     view:ViewMode,revision:u64,
     selected_object:Option<usize>,
+    edit_tool:EditTool,edit_axis:EditAxis,
     nav_tool:NavigationTool,
     epoch:Arc<AtomicU64>,last_edit:Instant,
     solid:Option<egui::TextureHandle>,
@@ -68,6 +71,7 @@ impl StudioApp {
             scene:load_scene(&SceneLoadOptions::studio()).ok().map(Arc::new),
             view:ViewMode::Solid,revision:1,
             selected_object:None,
+            edit_tool:EditTool::Select,edit_axis:EditAxis::Free,
             nav_tool:NavigationTool::Orbit,
             epoch:Arc::new(AtomicU64::new(1)),last_edit:Instant::now(),
             solid:None,live:None,final_image:None,
@@ -127,6 +131,21 @@ impl StudioApp {
                 self.invalidate();
             }
         }
+    }
+    fn commit_transform(&mut self,value:ObjectTransform){
+        let Some(id)=self.selected_object else{return;};
+        let Some(scene)=self.scene.as_mut() else{return;};
+        let result=Arc::make_mut(scene).scene.apply_object_transform(id,value);
+        match result{
+            Ok(())=>{
+                self.status="Geometria e BVH atualizadas — prévia e render usarão nova transformação.".into();
+                self.invalidate();
+            }
+            Err(err)=>self.status=format!("Transformação recusada: {err}"),
+        }
+    }
+    fn reset_transform(&mut self){
+        self.commit_transform(ObjectTransform::default());
     }
     fn launch_final(&mut self){
         if self.final_busy {
@@ -358,6 +377,7 @@ impl StudioApp {
                         egui::Button::new("Enquadrar selecionado (F)")).clicked(){
                         self.focus_selection();
                     }
+                    ui.label("G = mover • R = girar • S = escala • X/Y/Z = eixo");
                 });
             });
     }
@@ -403,6 +423,26 @@ impl StudioApp {
                     ui.separator();
                     ui.label("Texturas PBR importadas do MTL.");
                     ui.label("Alterações são mostradas no modo Ambiente e Tempo real.");
+                    ui.separator();
+                    ui.heading("Transformação do objeto");
+                    if let Some(id)=self.selected_object{
+                        if let Some(mut t)=self.scene.as_ref()
+                            .and_then(|s|s.scene.object_transforms.get(id).copied()){
+                            let mut changed=false;
+                            ui.label("Posição (m)");
+                            changed|=vector(ui,&mut t.translation);
+                            ui.label("Rotação XYZ (graus)");
+                            changed|=vector(ui,&mut t.rotation_degrees);
+                            ui.label("Escala XYZ");
+                            changed|=vector(ui,&mut t.scale);
+                            if changed{self.commit_transform(t);}
+                            if ui.button("Restaurar transformação").clicked(){
+                                self.reset_transform();
+                            }
+                        }
+                    }else{
+                        ui.label("Selecione um objeto no viewport ou no painel esquerdo.");
+                    }
                 });
             });
     }
@@ -461,7 +501,23 @@ impl StudioApp {
                         self.camera=CameraSettings::default();
                         self.invalidate();
                     }
-                    ui.label("Clique para selecionar objetos • F para enquadrar");
+                    ui.label("Clique: selecionar • F: enquadrar • G/R/S: transformação");
+                });
+            }
+            if self.view!=ViewMode::Final{
+                ui.horizontal_wrapped(|ui|{
+                    ui.label("Ferramenta");
+                    ui.selectable_value(&mut self.edit_tool,EditTool::Select,"Selecionar");
+                    ui.selectable_value(&mut self.edit_tool,EditTool::Move,"Mover (G)");
+                    ui.selectable_value(&mut self.edit_tool,EditTool::Rotate,"Girar (R)");
+                    ui.selectable_value(&mut self.edit_tool,EditTool::Scale,"Escala (S)");
+                    ui.label("Eixo");
+                    for (axis,label) in [
+                        (EditAxis::Free,"Livre"),(EditAxis::X,"X"),
+                        (EditAxis::Y,"Y"),(EditAxis::Z,"Z")
+                    ]{
+                        ui.selectable_value(&mut self.edit_axis,axis,label);
+                    }
                 });
             }
             if self.view==ViewMode::Final {
@@ -501,6 +557,45 @@ impl StudioApp {
                     egui::FontId::proportional(self.colors.brand_size),self.colors.muted);
             }
             if self.view!=ViewMode::Final{
+                if let (Some((image_rect,aspect)),Some(id),Some(loaded))=(
+                    pick_image,self.selected_object,self.scene.as_ref()
+                ){
+                    if let Some(bounds)=object_bounds(&loaded.scene,id){
+                        let center=bounds.center();
+                        if let Some((u,v))=project_point(self.camera,center,aspect){
+                            let from=egui::pos2(
+                                image_rect.left()+u*image_rect.width(),
+                                image_rect.top()+v*image_rect.height()
+                            );
+                            for (axis,color) in [
+                                (Vec3::new(0.65,0.0,0.0),self.colors.axis_x),
+                                (Vec3::new(0.0,0.65,0.0),self.colors.axis_y),
+                                (Vec3::new(0.0,0.0,0.65),self.colors.axis_z)
+                            ]{
+                                if let Some((end_u,end_v))=project_point(
+                                    self.camera,center+axis,aspect
+                                ){
+                                    let to=egui::pos2(
+                                        image_rect.left()+end_u*image_rect.width(),
+                                        image_rect.top()+end_v*image_rect.height()
+                                    );
+                                    painter.line_segment([from,to],egui::Stroke::new(
+                                        self.colors.axis_width,color
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                }
+                if response.hovered() && !ui.ctx().wants_keyboard_input(){
+                    if ui.input(|i|i.key_pressed(egui::Key::G)){self.edit_tool=EditTool::Move;}
+                    if ui.input(|i|i.key_pressed(egui::Key::R)){self.edit_tool=EditTool::Rotate;}
+                    if ui.input(|i|i.key_pressed(egui::Key::S)){self.edit_tool=EditTool::Scale;}
+                    if ui.input(|i|i.key_pressed(egui::Key::Escape)){self.edit_tool=EditTool::Select;}
+                    if ui.input(|i|i.key_pressed(egui::Key::X)){self.edit_axis=EditAxis::X;}
+                    if ui.input(|i|i.key_pressed(egui::Key::Y)){self.edit_axis=EditAxis::Y;}
+                    if ui.input(|i|i.key_pressed(egui::Key::Z)){self.edit_axis=EditAxis::Z;}
+                }
                 if response.clicked_by(egui::PointerButton::Primary) {
                     if let (Some((image_rect,aspect)),Some(pointer),Some(loaded))=(
                         pick_image,response.interact_pointer_pos(),self.scene.as_ref()
@@ -524,13 +619,29 @@ impl StudioApp {
                 if using_middle||using_primary{
                     let delta=ui.input(|i|i.pointer.delta());
                     if delta.length_sq()>0.0{
-                        let do_pan=if using_middle {shift}
-                            else{self.nav_tool==NavigationTool::Pan};
-                        changed|=if do_pan{
-                            pan(&mut self.camera,delta.x,delta.y,rect.height())
+                        let editing=using_primary && self.selected_object.is_some()
+                            && self.edit_tool!=EditTool::Select;
+                        if editing{
+                            if let Some(current)=self.selected_object.and_then(|id|
+                                self.scene.as_ref().and_then(|s|
+                                    s.scene.object_transforms.get(id).copied())
+                            ){
+                                if let Some(next)=apply_drag(
+                                    current,self.edit_tool,self.edit_axis,
+                                    delta.x,delta.y,self.camera,rect.height()
+                                ){
+                                    self.commit_transform(next);
+                                }
+                            }
                         }else{
-                            orbit(&mut self.camera,delta.x,delta.y)
-                        };
+                            let do_pan=if using_middle{shift}
+                                else{self.nav_tool==NavigationTool::Pan};
+                            changed|=if do_pan{
+                                pan(&mut self.camera,delta.x,delta.y,rect.height())
+                            }else{
+                                orbit(&mut self.camera,delta.x,delta.y)
+                            };
+                        }
                     }
                 }
                 if response.hovered(){
