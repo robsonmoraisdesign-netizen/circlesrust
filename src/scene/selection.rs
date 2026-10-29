@@ -70,3 +70,28 @@ pub fn frame_object(
     camera.target=center;
     true
 }
+
+
+/// Projects a world-space point into normalized (0..1) viewport coordinates.
+/// Returns None for points behind the camera, using the same perspective basis
+/// and aspect as picking, solid preview and the CPU ray tracer.
+pub fn project_point(
+    camera:CameraSettings,point:Vec3,aspect:f32
+)->Option<(f32,f32)>{
+    let camera=camera.validate().ok()?;
+    if !point.is_finite()||!aspect.is_finite()||aspect<=0.0{return None;}
+    let forward=(camera.target-camera.origin).normalized()?;
+    let hint=if forward.z.abs()>0.99{
+        Vec3::new(0.0,1.0,0.0)
+    }else{Vec3::new(0.0,0.0,1.0)};
+    let right=forward.cross(hint).normalized()?;
+    let up=right.cross(forward);
+    let d=point-camera.origin;
+    let distance=d.dot(forward);
+    if distance<=0.001{return None;}
+    let tangent=(camera.fov_degrees.to_radians()*0.5).tan();
+    Some((
+        0.5+0.5*d.dot(right)/(distance*tangent*aspect),
+        0.5-0.5*d.dot(up)/(distance*tangent),
+    ))
+}

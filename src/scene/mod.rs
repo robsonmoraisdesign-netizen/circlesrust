@@ -1,3 +1,4 @@
+pub mod transform;
 pub mod selection;
 pub mod loader;
 pub mod mtl;

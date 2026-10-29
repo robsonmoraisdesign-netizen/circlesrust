@@ -11,6 +11,7 @@ on:
       - feat/interactive-preview-realtime-ui
       - feat/pan-navigation-fast-preview
       - feat/scene-object-selection-focus-ui
+      - feat/native-object-transforms-gizmo-v1
   pull_request:
 jobs:
   test:

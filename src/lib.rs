@@ -16,3 +16,6 @@ pub mod preview;
 
 #[path="desktop/navigation.rs"]
 pub mod navigation;
+
+#[path="desktop/transform_tools.rs"]
+pub mod desktop_transform;

@@ -2,6 +2,16 @@
 
 **Motor original usado como referência:** [clonecircles](https://github.com/robsonmoraisdesign-netizen/clonecircles), branch `main`, commit `3eb35f85996baa6c1b2e19bf297b22745c85e321`. O repositório original é C/C++. Aqui a conversão é incremental: **ainda não existe um port completo do Cycles**.
 
+## Objetos transformáveis em Rust — posição, rotação e escala
+
+A próxima etapa oferece alterações **reais de malha**: escolha um objeto no viewport ou no painel esquerdo e edite a posição XYZ, rotação Euler XYZ e escala XYZ no painel direito. O motor aplica os valores aos triângulos, recalcula normais suaves com a transformação inversa da escala e reconstrói a BVH. Os materiais, as UVs, outros objetos e a cena original são preservados.
+
+No viewport, escolha as ferramentas Mover, Girar e Escala. Atalhos G/R/S também selecionam cada ferramenta; X, Y ou Z limitam o eixo. Arraste com botão esquerdo para transformar o objeto selecionado. Botão do meio continua orbitando, Shift+meio faz pan e a roda faz zoom. As três linhas XYZ são **indicadores de eixo projetados na câmera**, ainda não handles interativos individuais com snapping. Há botão para restaurar a transformação do objeto.
+
+As alterações afetam tanto o modo sólido quanto o render em tempo real e o render final. Enquanto o render final está calculando, ele utiliza o snapshot da cena no início; edições subsequentes não alteram o arquivo em curso.
+
+**Limites:** o objeto é um grupo OBJ `o/g` ou um primitivo procedural do estúdio, não uma instância Cycles/Blender com hierarquia. Rebuild da BVH é global e pode ficar lento em malhas muito grandes. A escala é positiva (não há espelhamento negativo). Ainda não existem snap, agrupamento avançado, undo persistente, rigging ou GPU.
+
 ## Seleção de objetos e foco no viewport (nova fase)
 
 O visual em HTML aprovado continua arquivado em ui/RV_Studio_Render_Layout_Corrigido.html, **sem alterações**. Um arquivo .gitattributes marca essa referência como documentação, para o GitHub Linguist contabilizar preferencialmente o Rust como linguagem funcional do projeto.
