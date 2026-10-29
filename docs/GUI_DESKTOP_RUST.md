@@ -74,3 +74,7 @@ Sem GPU, sem instancing, sem negativo na escala, sem manipuladores interativos d
 Ctrl+Z desfaz, Ctrl+Shift+Z/Ctrl+Y refazem; botões Desfazer/Refazer ficam no painel de transformação. Os atalhos não interceptam campos de texto em edição. Cada arraste G/R/S ou de um campo numérico é agrupado em uma operação; Esc durante o arraste cancela e exige soltar o botão antes de outro gesto. Valores digitados são registrados quando o controle os aplica. Restaurar transformação também pode ser desfeito.
 
 O limite é 128 operações por sessão/cena, armazenadas como comandos pequenos; desfazer reconstrói a BVH a partir da malha original. Não é histórico de câmera, materiais ou importações, nem salvamento de projeto. Render final em andamento preserva seu snapshot.
+
+## Handles X/Y/Z
+
+Em Mover e Escala, arraste a linha ou ponta de um eixo. O destaque indica o alvo; mover usa pontas circulares, escala usa quadradas. Arrastar para fora aumenta a escala e para dentro reduz. O eixo fica travado durante o gesto, com uma operação no histórico e cancelamento por Esc. Eixos quase alinhados à câmera ficam ocultos. Girar mantém o controle anterior, sem anéis nesta versão.

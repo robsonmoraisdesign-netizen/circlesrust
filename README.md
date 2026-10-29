@@ -2,6 +2,14 @@
 
 **Motor original usado como referência:** [clonecircles](https://github.com/robsonmoraisdesign-netizen/clonecircles), branch `main`, commit `3eb35f85996baa6c1b2e19bf297b22745c85e321`. O repositório original é C/C++. Aqui a conversão é incremental: **ainda não existe um port completo do Cycles**.
 
+## Gizmos interativos de movimento e escala
+
+Selecione um objeto e escolha **Mover (G)** ou **Escala (S)**. Clique e arraste a linha ou a ponta de X, Y ou Z para transformar somente esse eixo. O eixo sob o mouse recebe destaque. Na escala, arrastar para fora aumenta e para dentro diminui, inclusive nos eixos horizontais.
+
+Os handles acompanham o pivô real e ajustam seu tamanho à profundidade da câmera. Eixos quase alinhados à visão são ocultados para evitar um arraste ambíguo. O cálculo usa a área da imagem exibida, incluindo viewports com faixas laterais. Um arraste inteiro continua sendo uma operação de desfazer; Esc cancela.
+
+Esta etapa oferece handles lineares para **mover e escalar**. Girar continua pelos controles numéricos/atalho R; anéis de rotação, snap, eixos locais e GPU ainda não estão implementados. O deslocamento usa a projeção do eixo no início do gesto, portanto não promete prender a ponta ao cursor sob grandes deslocamentos em perspectiva.
+
 ## Histórico de transformações — nova etapa
 
 - **Ctrl+Z** desfaz; **Ctrl+Shift+Z** ou **Ctrl+Y** refaz. Há botões no painel de transformação.
@@ -10,13 +18,13 @@
 - O histórico armazena até 128 operações, apenas valores de transformação, sem duplicar malhas. Uma edição confirmada após desfazer inicia um novo histórico de refazer.
 - Ao carregar outra cena com sucesso, o histórico anterior é limpo. Falha na importação preserva a cena e seu histórico.
 
-O histórico é de **transformações nesta sessão**: não inclui materiais, câmera, importações nem salvamento em disco. O render final em andamento continua usando sua própria cena congelada. GPU e handles de gizmo interativos continuam pendentes.
+O histórico é de **transformações nesta sessão**: não inclui materiais, câmera, importações nem salvamento em disco. O render final em andamento continua usando sua própria cena congelada. GPU e anéis de rotação continuam pendentes.
 
 ## Objetos transformáveis em Rust — posição, rotação e escala
 
 Esta etapa oferece alterações **reais de malha**: escolha um objeto no viewport ou no painel esquerdo e edite a posição XYZ, rotação Euler XYZ e escala XYZ no painel direito. O motor aplica os valores aos triângulos, recalcula normais suaves com a transformação inversa da escala e reconstrói a BVH. Os materiais, as UVs, outros objetos e a cena original são preservados.
 
-No viewport, escolha as ferramentas Mover, Girar e Escala. Atalhos G/R/S também selecionam cada ferramenta; X, Y ou Z limitam o eixo. Arraste com botão esquerdo para transformar o objeto selecionado. Botão do meio continua orbitando, Shift+meio faz pan e a roda faz zoom. As três linhas XYZ são **indicadores de eixo projetados na câmera**, ainda não handles interativos individuais com snapping. Há botão para restaurar a transformação do objeto.
+No viewport, escolha as ferramentas Mover, Girar e Escala. Atalhos G/R/S também selecionam cada ferramenta; X, Y ou Z limitam o eixo. Arraste com botão esquerdo para transformar o objeto selecionado. Botão do meio continua orbitando, Shift+meio faz pan e a roda faz zoom. As linhas XYZ de Mover e Escala são handles interativos; ainda não há snapping. Há botão para restaurar a transformação do objeto.
 
 As alterações afetam tanto o modo sólido quanto o render em tempo real e o render final. Enquanto o render final está calculando, ele utiliza o snapshot da cena no início; edições subsequentes não alteram o arquivo em curso.
 
@@ -37,7 +45,7 @@ No modo **Ambiente 3D**:
 
 A BVH passou a usar uma pilha local de tamanho fixo para travessia, evitando uma alocação de heap por chamada de interseção. O limite atual do construtor é profundidade 64 e a pilha tem 128 posições. Testes geométricos existentes continuam sendo a medida de equivalência; não há benchmark de ganho de tempo reivindicado.
 
-A seleção usa IDs de objetos/grupos OBJ; as transformações estão descritas acima. Hierarquia de objetos Blender e handles de gizmo interativos continuam pendentes. O motor ainda usa CPU e não possui viewport rasterizado em GPU.
+A seleção usa IDs de objetos/grupos OBJ; as transformações estão descritas acima. Hierarquia de objetos Blender continua pendente. O motor ainda usa CPU e não possui viewport rasterizado em GPU.
 
 ## Pan e navegação responsiva (novo)
 

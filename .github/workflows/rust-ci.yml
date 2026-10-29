@@ -82,11 +82,17 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Compile graphical app (Rust egui)
         run: cargo build --release --features desktop-ui --bin circlesrust-studio
+      - name: Package ready-to-run desktop and matching source
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force desktop-package | Out-Null
+          Copy-Item target/release/circlesrust-studio.exe desktop-package/
+          Copy-Item docs/GUI_DESKTOP_RUST.md desktop-package/LEIA-ME.md
+          git archive --format=zip --output=desktop-package/Codigo-Fonte.zip HEAD
+          if ($LASTEXITCODE -ne 0) { throw "Source archive failed" }
       - name: Upload executable Windows desktop
         uses: actions/upload-artifact@v4
         with:
           name: RV-Studio-CirclesRust-Windows-Desktop
-          path: |
-            target/release/circlesrust-studio.exe
-            docs/GUI_DESKTOP_RUST.md
+          path: desktop-package/
           if-no-files-found: error

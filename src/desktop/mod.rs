@@ -17,11 +17,15 @@ use crate::scene::loader::{load_scene,SceneLoadOptions,LoadedScene};
 use crate::film::save_image;
 use crate::util::math::Vec3;
 use crate::navigation::{orbit,pan,zoom};
-use crate::scene::selection::{pick,frame_object,object_bounds,project_point};
+use crate::scene::selection::{pick,frame_object};
 use crate::scene::transform::ObjectTransform;
 use crate::scene::history::TransformHistory;
 use crate::desktop_transform::{EditTool,EditAxis,apply_drag};
 use theme::Tokens;
+use crate::gizmo::{self,AxisHandle};
+
+#[derive(Clone,Copy)]
+struct GizmoDrag { handle:AxisHandle, initial:ObjectTransform, pointer:egui::Pos2, tool:EditTool }
 
 #[derive(Clone,Copy,PartialEq,Eq,Debug)]
 enum ViewMode { Solid, Live, Final }
@@ -47,6 +51,7 @@ struct StudioApp {
     nav_tool:NavigationTool,
     history:TransformHistory,
     suppress_gesture:bool,
+    gizmo_drag:Option<GizmoDrag>,
     epoch:Arc<AtomicU64>,last_edit:Instant,
     solid:Option<egui::TextureHandle>,
     live:Option<egui::TextureHandle>,
@@ -76,7 +81,7 @@ impl StudioApp {
             selected_object:None,
             edit_tool:EditTool::Select,edit_axis:EditAxis::Free,
             nav_tool:NavigationTool::Orbit,
-            history:TransformHistory::default(),suppress_gesture:false,
+            history:TransformHistory::default(),suppress_gesture:false,gizmo_drag:None,
             epoch:Arc::new(AtomicU64::new(1)),last_edit:Instant::now(),
             solid:None,live:None,final_image:None,
             solid_revision:None,live_revision:None,live_pass:0,
@@ -107,6 +112,7 @@ impl StudioApp {
                     loaded.material_names.len());
                 self.scene=Some(Arc::new(loaded));
                 self.history=TransformHistory::default();
+                self.gizmo_drag=None;
                 self.active_material=0;
                 self.selected_object=None;
                 self.final_image=None;
@@ -117,6 +123,7 @@ impl StudioApp {
         }
     }
     fn select_object(&mut self,id:usize){
+        self.gizmo_drag=None;
         self.history.finish();
         if let Some(loaded)=&self.scene{
             if id>=loaded.scene.object_names.len(){return;}
@@ -590,37 +597,62 @@ impl StudioApp {
                     egui::FontId::proportional(self.colors.brand_size),self.colors.muted);
             }
             if self.view!=ViewMode::Final{
-                if let (Some((image_rect,aspect)),Some(id),Some(loaded))=(
-                    pick_image,self.selected_object,self.scene.as_ref()
-                ){
-                    if let Some(bounds)=object_bounds(&loaded.scene,id){
-                        let center=bounds.center();
-                        if let Some((u,v))=project_point(self.camera,center,aspect){
-                            let from=egui::pos2(
-                                image_rect.left()+u*image_rect.width(),
-                                image_rect.top()+v*image_rect.height()
-                            );
-                            for (axis,color) in [
-                                (Vec3::new(0.65,0.0,0.0),self.colors.axis_x),
-                                (Vec3::new(0.0,0.65,0.0),self.colors.axis_y),
-                                (Vec3::new(0.0,0.0,0.65),self.colors.axis_z)
-                            ]{
-                                if let Some((end_u,end_v))=project_point(
-                                    self.camera,center+axis,aspect
-                                ){
-                                    let to=egui::pos2(
-                                        image_rect.left()+end_u*image_rect.width(),
-                                        image_rect.top()+end_v*image_rect.height()
-                                    );
-                                    painter.line_segment([from,to],egui::Stroke::new(
-                                        self.colors.axis_width,color
-                                    ));
-                                }
+                let mut hovered_handle=None;
+                if matches!(self.edit_tool,EditTool::Move|EditTool::Scale){
+                    if let (Some((image_rect,_)),Some(id),Some(loaded))=(
+                        pick_image,self.selected_object,self.scene.as_ref()
+                    ){
+                        // Use the true transform pivot, not the rotated world AABB center.
+                        let pivot=loaded.scene.object_pivots[id]+loaded.scene.object_transforms[id].translation;
+                        let handles=gizmo::handles(self.camera,pivot,
+                            [image_rect.width(),image_rect.height()],self.colors.handle_length);
+                        if let Some(pointer)=response.hover_pos().filter(|p|image_rect.contains(*p)){
+                            hovered_handle=gizmo::hit_test(&handles,
+                                [pointer.x-image_rect.left(),pointer.y-image_rect.top()],self.colors.handle_hit_radius);
+                        }
+                        let axis_painter=ui.painter_at(image_rect.intersect(rect));
+                        for handle in handles{
+                            let from=image_rect.min+egui::vec2(handle.start[0],handle.start[1]);
+                            let to=image_rect.min+egui::vec2(handle.end[0],handle.end[1]);
+                            let active=self.gizmo_drag.map(|d|d.handle.axis)==Some(handle.axis)
+                                ||hovered_handle.map(|h|h.axis)==Some(handle.axis);
+                            let color=if active{self.colors.accent}else{match handle.axis{
+                                EditAxis::X=>self.colors.axis_x,EditAxis::Y=>self.colors.axis_y,
+                                _=>self.colors.axis_z,
+                            }};
+                            axis_painter.line_segment([from,to],egui::Stroke::new(self.colors.axis_width,color));
+                            if self.edit_tool==EditTool::Scale{
+                                axis_painter.rect_filled(egui::Rect::from_center_size(to,
+                                    egui::Vec2::splat(self.colors.handle_radius*2.0)),0.0,color);
+                            }else{axis_painter.circle_filled(to,self.colors.handle_radius,color);}
+                            let label=match handle.axis{EditAxis::X=>"X",EditAxis::Y=>"Y",_=>"Z"};
+                            axis_painter.text(to+egui::vec2(self.colors.gap,-self.colors.gap),
+                                egui::Align2::LEFT_BOTTOM,label,egui::FontId::proportional(self.colors.brand_size),color);
+                        }
+                    }
+                }
+                if hovered_handle.is_some(){ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);}
+                if ui.input(|i|i.pointer.primary_pressed()) && !self.suppress_gesture{
+                    if let (Some(handle),Some(pointer),Some(id),Some(scene))=(hovered_handle,
+                        response.interact_pointer_pos(),self.selected_object,self.scene.as_ref()){
+                        self.history.finish();
+                        self.gizmo_drag=Some(GizmoDrag{handle,initial:scene.scene.object_transforms[id],
+                            pointer,tool:self.edit_tool});
+                        self.edit_axis=handle.axis;
+                    }
+                }
+                if let Some(gesture)=self.gizmo_drag{
+                    ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+                    if !self.suppress_gesture{
+                        if let Some(pointer)=ui.input(|i|i.pointer.interact_pos()){
+                            let delta=pointer-gesture.pointer;
+                            if let Some(next)=gizmo::drag(gesture.initial,gesture.tool,gesture.handle,[delta.x,delta.y]){
+                                self.commit_transform(next);
                             }
                         }
                     }
                 }
-                if response.hovered() && !ui.ctx().wants_keyboard_input() && !ui.input(|i|i.modifiers.command){
+                if self.gizmo_drag.is_none() && response.hovered() && !ui.ctx().wants_keyboard_input() && !ui.input(|i|i.modifiers.command){
                     if ui.input(|i|i.key_pressed(egui::Key::G)){self.edit_tool=EditTool::Move;}
                     if ui.input(|i|i.key_pressed(egui::Key::R)){self.edit_tool=EditTool::Rotate;}
                     if ui.input(|i|i.key_pressed(egui::Key::S)){self.edit_tool=EditTool::Scale;}
@@ -629,7 +661,7 @@ impl StudioApp {
                     if ui.input(|i|i.key_pressed(egui::Key::Y)){self.edit_axis=EditAxis::Y;}
                     if ui.input(|i|i.key_pressed(egui::Key::Z)){self.edit_axis=EditAxis::Z;}
                 }
-                if response.clicked_by(egui::PointerButton::Primary) {
+                if response.clicked_by(egui::PointerButton::Primary) && hovered_handle.is_none() && self.gizmo_drag.is_none() {
                     if let (Some((image_rect,aspect)),Some(pointer),Some(loaded))=(
                         pick_image,response.interact_pointer_pos(),self.scene.as_ref()
                     ){
@@ -642,14 +674,14 @@ impl StudioApp {
                         }
                     }
                 }
-                if response.hovered() && ui.input(|i|i.key_pressed(egui::Key::F)) {
+                if self.gizmo_drag.is_none() && response.hovered() && ui.input(|i|i.key_pressed(egui::Key::F)) {
                     self.focus_selection();
                 }
                 let mut changed=false;
                 let using_middle=response.dragged_by(egui::PointerButton::Middle);
                 let using_primary=response.dragged_by(egui::PointerButton::Primary);
                 let shift=ui.input(|i|i.modifiers.shift);
-                if (using_middle||using_primary) && !self.suppress_gesture{
+                if (using_middle||using_primary) && !self.suppress_gesture && self.gizmo_drag.is_none(){
                     let delta=ui.input(|i|i.pointer.delta());
                     if delta.length_sq()>0.0{
                         let editing=using_primary && self.selected_object.is_some()
@@ -677,7 +709,7 @@ impl StudioApp {
                         }
                     }
                 }
-                if response.hovered(){
+                if response.hovered() && self.gizmo_drag.is_none(){
                     let scroll=ui.input(|i|i.raw_scroll_delta.y);
                     if scroll.abs()>0.0{
                         changed|=zoom(&mut self.camera,scroll);
@@ -724,9 +756,10 @@ impl eframe::App for StudioApp {
         let pointer_down=ctx.input(|i|i.pointer.primary_down());
         if !pointer_down{self.suppress_gesture=false;}
         // Escape cancels a gesture even if its pointer has left the viewport.
-        if self.history.is_editing() && ctx.input(|i|i.key_pressed(egui::Key::Escape)){
+        if (self.history.is_editing() || self.gizmo_drag.is_some()) && ctx.input(|i|i.key_pressed(egui::Key::Escape)){
             self.history_action(false,true);
             self.suppress_gesture=pointer_down;
+            self.gizmo_drag=None;
         }
         if !ctx.wants_keyboard_input() && !pointer_down{
             let redo=ctx.input_mut(|i|i.consume_key(egui::Modifiers::COMMAND.plus(egui::Modifiers::SHIFT),egui::Key::Z)
@@ -747,7 +780,7 @@ impl eframe::App for StudioApp {
         self.left(ctx);
         self.right(ctx);
         self.center(ctx);
-        if !pointer_down{self.history.finish();}
+        if !pointer_down{self.history.finish();self.gizmo_drag=None;}
         self.schedule();
         if self.solid_busy||self.live_busy||self.final_busy{
             ctx.request_repaint_after(Duration::from_millis(75));
