@@ -88,6 +88,8 @@ jobs:
           New-Item -ItemType Directory -Force desktop-package | Out-Null
           Copy-Item target/release/circlesrust-studio.exe desktop-package/
           Copy-Item docs/GUI_DESKTOP_RUST.md desktop-package/LEIA-ME.md
+          Copy-Item docs/PROGRESSO_MIGRACAO.md desktop-package/PROGRESSO_MIGRACAO.md
+          Copy-Item AGENTS.md desktop-package/REGRAS_RUST.md
           git archive --format=zip --output=desktop-package/Codigo-Fonte.zip HEAD
           if ($LASTEXITCODE -ne 0) { throw "Source archive failed" }
       - name: Upload executable Windows desktop

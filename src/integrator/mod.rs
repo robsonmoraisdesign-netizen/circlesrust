@@ -217,6 +217,7 @@ impl Scene {
         Ok(())
     }
     pub fn set_environment_map(&mut self,map:ImageTexture){
+        map.environment_distribution();
         self.environment_map=Some(map);
     }
 
@@ -422,16 +423,20 @@ fn direct_light(scene:&Scene,point:Vec3,n:Vec3,ng:Vec3,view:Vec3,material:Materi
     rgb_mul(f,light.radiance)*(ndl*mis/light_pdf)
 }
 
-/// Cosine-hemisphere next-event estimation of the sky, MIS weighted against
-/// BSDF sampling. Cycles uses importance sampling of the environment map;
-/// this is a conservative, basic precursor.
+/// HDRI importance sampling with matching BSDF MIS; procedural sky retains
+/// the original cosine-hemisphere strategy.
 fn direct_environment(scene:&Scene,point:Vec3,n:Vec3,ng:Vec3,
                       view:Vec3,material:Material,rng:&mut Rng)->Vec3{
     if scene.sky_strength<=0.0{return Vec3::ZERO;}
-    let direction=cosine_hemisphere(n,rng);
+    let (direction,env_pdf)=if let Some(map)=&scene.environment_map{
+        map.environment_distribution().sample([rng.next_f32(),rng.next_f32(),rng.next_f32()])
+            .expect("RNG samples are finite and in range")
+    }else{
+        let direction=cosine_hemisphere(n,rng);
+        (direction,n.dot(direction).max(0.0)/PI)
+    };
     let cosine=n.dot(direction).max(0.0);
-    if cosine<=0.0{return Vec3::ZERO;}
-    let env_pdf=cosine/PI;
+    if cosine<=0.0||env_pdf<=0.0{return Vec3::ZERO;}
     let Some(ray)=Ray::new(point+ng*0.0015,direction,0.0005,1000.0) else {
         return Vec3::ZERO;
     };
@@ -460,7 +465,9 @@ fn trace(scene:&Scene,first:Ray,max_bounces:u32,rng:&mut Rng)->Vec3{
             break;
         }
         let Some(hit)=mesh_hit else {
-            let env_pdf=previous_normal.dot(ray.direction).max(0.0)/PI;
+            let env_pdf=if let Some(map)=&scene.environment_map{
+                map.environment_distribution().pdf(ray.direction)
+            }else{previous_normal.dot(ray.direction).max(0.0)/PI};
             let weight=if bounce==0{1.0}else{power_heuristic(previous_bsdf_pdf,env_pdf)};
             radiance=radiance+rgb_mul(throughput,environment(scene,ray.direction))*weight;
             break;
@@ -726,3 +733,7 @@ pub fn render_rgb_denoised_with_camera_cancellable(
         &rgb,settings.width,settings.height,&guides,strength
     )
 }
+
+#[cfg(test)]
+#[path = "../../tests/internal/environment_mis.rs"]
+mod environment_mis_tests;

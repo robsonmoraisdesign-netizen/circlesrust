@@ -58,3 +58,17 @@ fn object_switch_splits_commands_and_history_is_bounded() {
     while history.undo(&mut scene).unwrap().is_some() { count += 1; }
     assert_eq!(count, 128);
 }
+
+#[test]
+fn undo_and_redo_restore_render_pixels_not_only_transform_values() {
+    use circlesrust::integrator::{render_rgb,RenderSettings};
+    let mut scene=studio_scene();let mut history=TransformHistory::default();
+    let settings=RenderSettings{width:24,height:16,samples:2,max_bounces:3,exposure:1.0,seed:31};
+    let original=render_rgb(&scene,settings).unwrap();
+    let changed=ObjectTransform{translation:Vec3::new(1.0,0.0,0.2),
+        rotation_degrees:Vec3::new(35.0,20.0,45.0),scale:Vec3::new(1.5,0.7,1.0)};
+    history.apply(&mut scene,4,changed).unwrap();history.finish();
+    let after=render_rgb(&scene,settings).unwrap();assert_ne!(original,after);
+    history.undo(&mut scene).unwrap();assert_eq!(render_rgb(&scene,settings).unwrap(),original);
+    history.redo(&mut scene).unwrap();assert_eq!(render_rgb(&scene,settings).unwrap(),after);
+}

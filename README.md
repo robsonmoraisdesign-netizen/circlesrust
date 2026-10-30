@@ -2,6 +2,16 @@
 
 **Motor original usado como referência:** [clonecircles](https://github.com/robsonmoraisdesign-netizen/clonecircles), branch `main`, commit `3eb35f85996baa6c1b2e19bf297b22745c85e321`. O repositório original é C/C++. Aqui a conversão é incremental: **ainda não existe um port completo do Cycles**.
 
+## Etapa atual: HDRI por importância e verificação da migração
+
+O integrador Rust agora prioriza regiões luminosas do HDRI. Uma distribuição acumulada considera luminância e área sólida esférica; amostragem direta e raios BSDF usam a mesma densidade no MIS. O cache é criado na importação e compartilhado entre cópias da textura. Um componente uniforme de 5% mantém suporte nas áreas atingidas pela filtragem bilinear. Mapas pretos usam distribuição uniforme.
+
+A distribuição auxiliar é limitada a 512 × 256 células e recebe contribuição de todos os texels; a imagem de radiância conserva a resolução original. Esta implementação própria, guiada por `clonecircles/src/kernel/light/background.h` e `src/scene/light.cpp`, ainda não inclui portais, light tree ou GPU. A redução de variância é comprovada por teste sintético, não por benchmark universal de velocidade.
+
+**Indicador de volume do núcleo: 1,47%** (2.585 linhas Rust não vazias / 176.087 linhas da referência). **Não é percentual de equivalência funcional ao Cycles.** O cálculo exclui interface, CLI, testes e HTML do numerador e inclui comentários nos arquivos contados. Consulte [progresso e critérios](docs/PROGRESSO_MIGRACAO.md).
+
+**Regra permanente:** funções do software em Rust, sem JavaScript para substituir módulos. Veja [AGENTS.md](AGENTS.md). As seções anteriores de evolução abaixo descrevem etapas históricas; o estado atual é consolidado no relatório de progresso.
+
 ## Gizmos interativos de movimento e escala
 
 Selecione um objeto e escolha **Mover (G)** ou **Escala (S)**. Clique e arraste a linha ou a ponta de X, Y ou Z para transformar somente esse eixo. O eixo sob o mouse recebe destaque. Na escala, arrastar para fora aumenta e para dentro diminui, inclusive nos eixos horizontais.
@@ -84,7 +94,7 @@ Você também pode substituir o céu procedural por uma imagem panorâmica equir
 
 O arquivo é carregado diretamente pelo programa Rust, sem precisar indicar caminhos para Blender, LuxCore ou DLLs externas. A iluminação usa o mapa na contribuição do ambiente para os raios primários e indiretos e na estimativa de luz ambiente.
 
-**Limitações:** a amostragem panorâmica nesta fase é hemisférica, sem importância baseada na luminosidade dos texels do HDRI. Hotspots pequenos podem ficar ruidosos. Suporte formal de EXR, gerenciamento OCIO/AgX e GPU continuam pendentes.
+**Atualização:** a amostragem do mapa agora usa importância por luminância e área sólida, descrita no topo. Hotspots pequenos ainda podem apresentar ruído. EXR, OCIO/AgX e GPU continuam pendentes.
 
 ## Fase atual — mapas de rugosidade, metalicidade e normais em Rust
 
