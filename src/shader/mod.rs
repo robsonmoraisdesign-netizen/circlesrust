@@ -5,6 +5,9 @@
 use crate::util::math::Vec3;
 use std::path::Path;
 pub mod surface;
+pub mod environment;
+use std::sync::{Arc, OnceLock};
+use environment::EnvironmentDistribution;
 
 
 fn linear(channel: u8) -> f32 {
@@ -32,6 +35,7 @@ pub struct ImageTexture {
     width: usize,
     height: usize,
     pixels: Vec<Vec3>,
+    environment_distribution: Arc<OnceLock<EnvironmentDistribution>>,
 }
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub enum TextureColorSpace { Srgb, NonColor }
@@ -55,7 +59,7 @@ impl ImageTexture {
         };
         let converted=pixels.as_chunks::<3>().0.iter()
             .map(|p| Vec3::new(channel(p[0]),channel(p[1]),channel(p[2]))).collect();
-        Ok(Self{width:width as usize,height:height as usize,pixels:converted})
+        Ok(Self{width:width as usize,height:height as usize,pixels:converted,environment_distribution:Arc::default()})
     }
     pub fn load(path:impl AsRef<Path>) -> Result<Self,String>{
         Self::load_with_space(path,TextureColorSpace::Srgb)
@@ -79,7 +83,7 @@ impl ImageTexture {
         }
         let pixels=values.as_chunks::<3>().0.iter()
             .map(|p|Vec3::new(p[0],p[1],p[2])).collect();
-        Ok(Self{width:width as usize,height:height as usize,pixels})
+        Ok(Self{width:width as usize,height:height as usize,pixels,environment_distribution:Arc::default()})
     }
     pub fn load_environment(path:impl AsRef<Path>)->Result<Self,String>{
         let p=path.as_ref();
@@ -91,6 +95,10 @@ impl ImageTexture {
         }else{
             Self::load(p)
         }
+    }
+    /// Build once during scene loading; cloned render snapshots share the cache.
+    pub fn environment_distribution(&self)->&EnvironmentDistribution {
+        self.environment_distribution.get_or_init(||EnvironmentDistribution::new(self))
     }
     /// Latitude/longitude world lookup. Wraps U, clamps V at poles.
     pub fn sample_latlong(&self,dir:Vec3)->Vec3{

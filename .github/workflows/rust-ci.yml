@@ -80,13 +80,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Test desktop geometry gestures and viewport
+        run: cargo test --features desktop-ui --all-targets
       - name: Compile graphical app (Rust egui)
         run: cargo build --release --features desktop-ui --bin circlesrust-studio
+      - name: Package ready-to-run desktop and matching source
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force desktop-package | Out-Null
+          Copy-Item target/release/circlesrust-studio.exe desktop-package/
+          Copy-Item docs/GUI_DESKTOP_RUST.md desktop-package/LEIA-ME.md
+          Copy-Item docs/PROGRESSO_MIGRACAO.md desktop-package/PROGRESSO_MIGRACAO.md
+          Copy-Item AGENTS.md desktop-package/REGRAS_RUST.md
+          Copy-Item ABRIR_MODO_COMPATIBILIDADE.bat desktop-package/
+          Copy-Item docs/SOLIDCRAFT_VIEWPORT.md desktop-package/
+          Copy-Item ATTRIBUTION.md desktop-package/
+          New-Item -ItemType Directory -Force desktop-package/third_party | Out-Null
+          Copy-Item third_party/SOLIDCRAFT-MIT.txt desktop-package/third_party/
+          git archive --format=zip --output=desktop-package/Codigo-Fonte.zip HEAD
+          if ($LASTEXITCODE -ne 0) { throw "Source archive failed" }
       - name: Upload executable Windows desktop
         uses: actions/upload-artifact@v4
         with:
           name: RV-Studio-CirclesRust-Windows-Desktop
-          path: |
-            target/release/circlesrust-studio.exe
-            docs/GUI_DESKTOP_RUST.md
+          path: desktop-package/
           if-no-files-found: error

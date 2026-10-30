@@ -1,4 +1,5 @@
 pub mod transform;
+pub mod history;
 pub mod selection;
 pub mod loader;
 pub mod mtl;
