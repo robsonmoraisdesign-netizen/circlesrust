@@ -22,3 +22,6 @@ pub mod desktop_transform;
 
 #[path="desktop/gizmo.rs"]
 pub mod gizmo;
+
+#[path="desktop/mesh_view.rs"]
+pub mod mesh_view;

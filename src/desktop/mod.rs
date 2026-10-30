@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 //! RV Studio Render native Rust UI with three distinct, functional view modes.
-//! Solid viewport raycasts actual BVH geometry. Live preview uses low-sample
+//! Solid viewport draws cached meshes through wgpu. Live preview uses low-sample
 //! CPU path tracing on scene edits and progressively refines. Final view keeps
 //! the full-resolution image, with a permanent route back to the environment.
-//! None of these paths pretends to be a GPU-backed Cycles viewport.
+//! Path tracing remains CPU; the solid viewport is a separate raster pipeline.
 mod theme;
+pub mod gpu_view;
+use crate::mesh_view;
 use crate::preview;
 
 use std::{path::PathBuf,sync::{Arc,mpsc,atomic::{AtomicU64,Ordering}},time::{Duration,Instant}};
@@ -40,6 +42,11 @@ struct Report{
     result:Result<(Vec<u8>,u32,u32),String>,
 }
 struct StudioApp {
+    gpu:Option<eframe::egui_wgpu::RenderState>,
+    gpu_mesh:Option<(Vec<u32>,Arc<Vec<u8>>)>,
+    pending_transform:Option<(usize,ObjectTransform)>,
+    defer_transforms:bool,
+    viewport_backend:String,
     colors:Tokens,
     options:SceneLoadOptions,
     obj_path:String,mtl_path:String,environment_path:String,output_path:String,
@@ -65,10 +72,19 @@ struct StudioApp {
 }
 impl StudioApp {
     fn new(cc:&eframe::CreationContext<'_>)->Self{
+        Self::from_context(&cc.egui_ctx,cc.wgpu_render_state.clone())
+    }
+    fn from_context(ctx:&egui::Context,gpu:Option<eframe::egui_wgpu::RenderState>)->Self {
+        let gpu=gpu.filter(|rs|rs.device.limits().max_storage_buffers_per_shader_stage>0);
+        let viewport_backend=if let Some(rs)=&gpu{
+            gpu_view::install(rs);
+            format!("Viewport {:?}: {}",rs.adapter.get_info().backend,rs.adapter.get_info().name)
+        }else{"Viewport CPU (compatibilidade)".into()};
         let colors=Tokens::palette(true);
-        colors.apply(&cc.egui_ctx);
+        colors.apply(ctx);
         let (sender,receiver)=mpsc::channel();
         Self{
+            gpu,gpu_mesh:None,pending_transform:None,defer_transforms:false,viewport_backend,
             colors,options:SceneLoadOptions::studio(),
             obj_path:String::new(),mtl_path:String::new(),environment_path:String::new(),
             output_path:"RV_Studio_Render.png".into(),
@@ -111,6 +127,7 @@ impl StudioApp {
                     loaded.source_label,loaded.scene.bvh.stats().triangles,
                     loaded.material_names.len());
                 self.scene=Some(Arc::new(loaded));
+                self.gpu_mesh=None;self.pending_transform=None;
                 self.history=TransformHistory::default();
                 self.gizmo_drag=None;
                 self.active_material=0;
@@ -123,6 +140,7 @@ impl StudioApp {
         }
     }
     fn select_object(&mut self,id:usize){
+        self.finish_pending_transform();
         self.gizmo_drag=None;
         self.history.finish();
         if let Some(loaded)=&self.scene{
@@ -145,9 +163,26 @@ impl StudioApp {
             }
         }
     }
+    fn current_transform(&self,id:usize)->Option<ObjectTransform>{
+        self.pending_transform.filter(|(i,_)|*i==id).map(|(_,t)|t)
+            .or_else(||self.scene.as_ref()?.scene.object_transforms.get(id).copied())
+    }
+    fn finish_pending_transform(&mut self){
+        if let Some((id,t))=self.pending_transform.take(){
+            if self.selected_object==Some(id){
+                let deferred=self.defer_transforms;self.defer_transforms=false;
+                self.commit_transform(t);self.defer_transforms=deferred;
+            }
+        }
+    }
     fn commit_transform(&mut self,value:ObjectTransform){
         if self.suppress_gesture{return;}
         let Some(id)=self.selected_object else{return;};
+        if !value.valid(){return;}
+        if self.defer_transforms {
+            if self.current_transform(id)!=Some(value){self.pending_transform=Some((id,value));self.invalidate();}
+            return;
+        }
         let Some(scene)=self.scene.as_mut() else{return;};
         let result=self.history.apply(&mut Arc::make_mut(scene).scene,id,value);
         match result{
@@ -160,11 +195,16 @@ impl StudioApp {
         }
     }
     fn reset_transform(&mut self){
+        self.finish_pending_transform();
         self.history.finish();
         self.commit_transform(ObjectTransform::default());
         self.history.finish();
     }
     fn history_action(&mut self,redo:bool,cancel:bool){
+        if cancel && self.pending_transform.take().is_some(){
+            self.invalidate();self.status="Transformação cancelada.".into();return;
+        }
+        self.finish_pending_transform();
         let Some(scene)=self.scene.as_mut() else{return;};
         let scene=&mut Arc::make_mut(scene).scene;
         let result=if cancel{self.history.cancel(scene)}
@@ -180,6 +220,7 @@ impl StudioApp {
         }
     }
     fn launch_final(&mut self){
+        self.finish_pending_transform();
         if self.final_busy {
             self.view=ViewMode::Final;
             return;
@@ -466,8 +507,7 @@ impl StudioApp {
                         }
                     });
                     if let Some(id)=self.selected_object{
-                        if let Some(mut t)=self.scene.as_ref()
-                            .and_then(|s|s.scene.object_transforms.get(id).copied()){
+                        if let Some(mut t)=self.current_transform(id){
                             let mut changed=false;
                             ui.label("Posição (m)");
                             changed|=vector(ui,&mut t.translation);
@@ -513,6 +553,28 @@ impl StudioApp {
                     });
                 });
             });
+    }
+    fn gpu_frame(&mut self,aspect:f32)->Option<gpu_view::Frame>{
+        let rs=self.gpu.as_ref()?;
+        let scene=&self.scene.as_ref()?.scene;
+        let limits=rs.device.limits();
+        let bytes=scene.base_triangles.len().checked_mul(120)?;
+        if bytes as u64>limits.max_buffer_size || bytes/40>u32::MAX as usize
+            || scene.object_names.len().saturating_mul(128)>limits.max_storage_buffer_binding_size as usize{
+            self.gpu=None;self.defer_transforms=false;
+            self.finish_pending_transform();
+            self.viewport_backend="Viewport CPU: malha excede limites do adaptador".into();
+            return None;
+        }
+        let key:Vec<u32>=scene.materials.iter().flat_map(|m|[m.base_color.x.to_bits(),m.base_color.y.to_bits(),m.base_color.z.to_bits()]).collect();
+        if !self.gpu_mesh.as_ref().is_some_and(|(old,_)|*old==key){
+            self.gpu_mesh=Some((key,Arc::new(mesh_view::mesh_bytes(scene))));
+        }
+        Some(gpu_view::Frame{
+            mesh:self.gpu_mesh.as_ref()?.1.clone(),
+            transforms:mesh_view::transform_bytes(scene,self.pending_transform),
+            camera:mesh_view::camera_bytes(self.camera,aspect,scene.light.center,self.selected_object,self.colors.selection_tint,rs.target_format.is_srgb())?,
+        })
     }
     fn center(&mut self,ctx:&egui::Context){
         egui::CentralPanel::default().show(ctx,|ui|{
@@ -570,13 +632,21 @@ impl StudioApp {
             let (rect,response)=ui.allocate_exact_size(space,egui::Sense::click_and_drag());
             let painter=ui.painter_at(rect);
             painter.rect_filled(rect,0.0,self.colors.canvas);
+            let aspect=self.settings.width.max(1) as f32/self.settings.height.max(1) as f32;
+            let use_gpu=self.gpu.is_some() && (self.view==ViewMode::Solid || (self.view==ViewMode::Live && (self.pending_transform.is_some() || self.last_edit.elapsed()<Duration::from_millis(160))));
+            let gpu_frame=if use_gpu{self.gpu_frame(aspect)}else{None};
             let texture=match self.view {
                 ViewMode::Solid=>self.solid.as_ref(),
                 ViewMode::Live=>self.live.as_ref(),
                 ViewMode::Final=>self.final_image.as_ref(),
             };
             let mut pick_image=None;
-            if let Some(texture)=texture{
+            if let Some(frame)=gpu_frame{
+                let width=rect.width().min(rect.height()*aspect).max(1.0);
+                let image_rect=egui::Rect::from_center_size(rect.center(),egui::vec2(width,width/aspect));
+                pick_image=Some((image_rect,aspect));
+                painter.add(eframe::egui_wgpu::Callback::new_paint_callback(image_rect,gpu_view::ViewportCallback(frame)));
+            }else if let Some(texture)=texture{
                 let original=texture.size_vec2();
                 let scale=(rect.width()/original.x).min(rect.height()/original.y).max(0.01);
                 let width=original.x*scale;
@@ -603,7 +673,7 @@ impl StudioApp {
                         pick_image,self.selected_object,self.scene.as_ref()
                     ){
                         // Use the true transform pivot, not the rotated world AABB center.
-                        let pivot=loaded.scene.object_pivots[id]+loaded.scene.object_transforms[id].translation;
+                        let pivot=loaded.scene.object_pivots[id]+self.current_transform(id).unwrap_or_default().translation;
                         let handles=gizmo::handles(self.camera,pivot,
                             [image_rect.width(),image_rect.height()],self.colors.handle_length);
                         if let Some(pointer)=response.hover_pos().filter(|p|image_rect.contains(*p)){
@@ -633,10 +703,10 @@ impl StudioApp {
                 }
                 if hovered_handle.is_some(){ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);}
                 if ui.input(|i|i.pointer.primary_pressed()) && !self.suppress_gesture{
-                    if let (Some(handle),Some(pointer),Some(id),Some(scene))=(hovered_handle,
+                    if let (Some(handle),Some(pointer),Some(id),Some(_scene))=(hovered_handle,
                         response.interact_pointer_pos(),self.selected_object,self.scene.as_ref()){
                         self.history.finish();
-                        self.gizmo_drag=Some(GizmoDrag{handle,initial:scene.scene.object_transforms[id],
+                        self.gizmo_drag=Some(GizmoDrag{handle,initial:self.current_transform(id).unwrap_or_default(),
                             pointer,tool:self.edit_tool});
                         self.edit_axis=handle.axis;
                     }
@@ -688,8 +758,7 @@ impl StudioApp {
                             && self.edit_tool!=EditTool::Select;
                         if editing{
                             if let Some(current)=self.selected_object.and_then(|id|
-                                self.scene.as_ref().and_then(|s|
-                                    s.scene.object_transforms.get(id).copied())
+                                self.current_transform(id)
                             ){
                                 if let Some(next)=apply_drag(
                                     current,self.edit_tool,self.edit_axis,
@@ -722,12 +791,12 @@ impl StudioApp {
     fn schedule(&mut self){
         match self.view{
             ViewMode::Solid=>{
-                if self.last_edit.elapsed()>=Duration::from_millis(75){
+                if self.gpu.is_none() && self.last_edit.elapsed()>=Duration::from_millis(75){
                     self.start_solid();
                 }
             }
             ViewMode::Live=>{
-                if self.last_edit.elapsed()>=Duration::from_millis(160){
+                if self.pending_transform.is_none() && self.last_edit.elapsed()>=Duration::from_millis(160){
                     self.start_live();
                 }
             },
@@ -752,11 +821,13 @@ fn preview_size(settings:RenderSettings,max_width:u32)->(u32,u32){
 }
 impl eframe::App for StudioApp {
     fn update(&mut self,ctx:&egui::Context,_frame:&mut eframe::Frame){
+        let before=self.revision;
         self.receive(ctx);
         let pointer_down=ctx.input(|i|i.pointer.primary_down());
+        self.defer_transforms=pointer_down && self.gpu.is_some();
         if !pointer_down{self.suppress_gesture=false;}
         // Escape cancels a gesture even if its pointer has left the viewport.
-        if (self.history.is_editing() || self.gizmo_drag.is_some()) && ctx.input(|i|i.key_pressed(egui::Key::Escape)){
+        if (self.history.is_editing() || self.gizmo_drag.is_some() || self.pending_transform.is_some()) && ctx.input(|i|i.key_pressed(egui::Key::Escape)){
             self.history_action(false,true);
             self.suppress_gesture=pointer_down;
             self.gizmo_drag=None;
@@ -773,22 +844,34 @@ impl eframe::App for StudioApp {
             ui.horizontal_wrapped(|ui|{
                 ui.label(&self.status);
                 ui.separator();
-                ui.label(if self.final_busy{"Render final na CPU"}else{"CirclesRust • CPU"});
+                ui.label(&self.viewport_backend);
             });
         });
         self.camera_panel(ctx);
         self.left(ctx);
         self.right(ctx);
         self.center(ctx);
-        if !pointer_down{self.history.finish();self.gizmo_drag=None;}
+        if !pointer_down{self.finish_pending_transform();self.history.finish();self.gizmo_drag=None;}
         self.schedule();
+        if before!=self.revision{ctx.request_repaint();}
+        if (self.view==ViewMode::Live && self.live_pass<3 && self.pending_transform.is_none())
+            || (self.view==ViewMode::Solid && self.gpu.is_none() && self.solid_revision!=Some(self.revision)){
+            ctx.request_repaint_after(Duration::from_millis(20));
+        }
         if self.solid_busy||self.live_busy||self.final_busy{
             ctx.request_repaint_after(Duration::from_millis(75));
         }
     }
 }
 pub fn run()->eframe::Result{
+    let cpu=std::env::args().any(|s|s=="--cpu-viewport");
+    let setup=eframe::egui_wgpu::WgpuSetupCreateNew{
+        device_descriptor:Arc::new(gpu_view::device_descriptor),..Default::default()
+    };
     let options=eframe::NativeOptions{
+        wgpu_options:eframe::egui_wgpu::WgpuConfiguration{wgpu_setup:setup.into(),..Default::default()},
+        renderer:if cpu{eframe::Renderer::Glow}else{eframe::Renderer::Wgpu},
+        depth_buffer:24,multisampling:0,
         viewport:egui::ViewportBuilder::default()
             .with_inner_size([1460.0,910.0])
             .with_min_inner_size([940.0,640.0]),
@@ -796,4 +879,40 @@ pub fn run()->eframe::Result{
     };
     eframe::run_native("RV Studio Render | CirclesRust",options,
         Box::new(|cc|Ok(Box::new(StudioApp::new(cc)))))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn thousand_drag_updates_keep_scene_and_bvh_until_release(){
+        let mut app=StudioApp::from_context(&egui::Context::default(),None);
+        app.select_object(0);
+        let snapshot=app.scene.as_ref().unwrap().clone();
+        app.defer_transforms=true;
+        for i in 1..=1000 {
+            let mut t=ObjectTransform::default();t.translation.x=i as f32*0.001;
+            app.commit_transform(t);
+            assert!(Arc::ptr_eq(app.scene.as_ref().unwrap(),&snapshot));
+            assert!(!app.history.can_undo());
+        }
+        app.finish_pending_transform();app.history.finish();
+        assert_eq!(app.scene.as_ref().unwrap().scene.object_transforms[0].translation.x,1.0);
+        app.history_action(false,false);
+        assert_eq!(app.scene.as_ref().unwrap().scene.object_transforms[0],ObjectTransform::default());
+        app.history_action(true,false);
+        assert_eq!(app.scene.as_ref().unwrap().scene.object_transforms[0].translation.x,1.0);
+    }
+    #[test]
+    fn cancelling_preview_preserves_scene_and_redo(){
+        let mut app=StudioApp::from_context(&egui::Context::default(),None);
+        app.select_object(0);
+        let mut t=ObjectTransform::default();t.translation.x=1.0;
+        app.commit_transform(t);app.history.finish();app.history_action(false,false);
+        let snapshot=app.scene.as_ref().unwrap().clone();
+        app.defer_transforms=true;t.translation.x=2.0;app.commit_transform(t);
+        app.history_action(false,true);
+        assert!(Arc::ptr_eq(app.scene.as_ref().unwrap(),&snapshot));
+        assert!(app.history.can_redo());assert!(app.pending_transform.is_none());
+    }
 }

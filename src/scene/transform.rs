@@ -29,7 +29,7 @@ impl ObjectTransform{
         [r.x,r.y,r.z].iter().all(|x|x.abs()<=3600.0)&&
         [s.x,s.y,s.z].iter().all(|x|(0.01..=100.0).contains(x))
     }
-    fn rotate(self,v:Vec3)->Vec3{
+    pub(crate) fn rotate(self,v:Vec3)->Vec3{
         let (sx,cx)=self.rotation_degrees.x.to_radians().sin_cos();
         let (sy,cy)=self.rotation_degrees.y.to_radians().sin_cos();
         let (sz,cz)=self.rotation_degrees.z.to_radians().sin_cos();
@@ -37,7 +37,7 @@ impl ObjectTransform{
         let b=Vec3::new(a.x*cy+a.z*sy,a.y,-a.x*sy+a.z*cy);
         Vec3::new(b.x*cz-b.y*sz,b.x*sz+b.y*cz,b.z)
     }
-    fn point(self,p:Vec3,pivot:Vec3)->Vec3{
+    pub(crate) fn point(self,p:Vec3,pivot:Vec3)->Vec3{
         let d=p-pivot;
         let scaled=Vec3::new(d.x*self.scale.x,d.y*self.scale.y,d.z*self.scale.z);
         pivot+self.translation+self.rotate(scaled)

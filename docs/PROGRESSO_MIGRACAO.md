@@ -34,7 +34,8 @@ O contador rejeita um checkout de referência diferente ou com modificações em
 | Handles mover/escalar, desfazer/refazer/cancelar | Implementado; interação visual Windows ainda precisa validação |
 | PNG/BMP, prévia sólida/tempo real CPU, filtro de ruído básico | Implementado; não é OIDN/OptiX |
 | Anéis de rotação, snapping, hierarquia e instâncias | Pendentes |
-| GPU de viewport e de path tracing | Pendentes |
+| GPU do viewport sólido, matrizes e cache de malhas | Implementado nesta etapa; validação de placa física pendente |
+| GPU de path tracing, CAD/BRep SolidCraft | Pendentes |
 | Principled completo, transmissão/refração, volumes, cabelo e motion blur | Pendentes |
 | EXR, OCIO/AgX, light tree, portais, shader graph completo | Pendentes |
 | Salvamento/abertura de projeto e biblioteca de materiais | Pendentes |
@@ -53,3 +54,9 @@ O contador rejeita um checkout de referência diferente ou com modificações em
 ## Regras de entrega
 
 Sempre informar percentual/métrica, mudanças reais, evidência de testes, limitações e o que falta. Não trocar Rust por JavaScript para fechar uma etapa. O HTML arquivado é apenas referência visual. Executável e fonte devem corresponder à mesma revisão; Actions em PR pode empacotar o commit de teste de merge, preservado no comentário de `Codigo-Fonte.zip`.
+
+## Etapa SolidCraft / viewport
+
+Indicador permanece **1,47%** (2.585 / 176.087). Câmera, renderer e controle de gesto ficam em `src/desktop`, fora do numerador fixo; não inflar o progresso pelo código de interface. Nova integração documentada em `SOLIDCRAFT_VIEWPORT.md`; origem e licença em `ATTRIBUTION.md`. Testes adicionais: matrizes versus geometria CPU, projeção versus picking, pixels offscreen, profundidade, seleção, órbita, cache e 1.000 atualizações por gesto sem reconstrução da cena. Resultados da execução corrente e CI devem acompanhar a entrega.
+
+Validação local desta etapa: **79 testes com desktop-ui**, 76 no núcleo/CLI sem a interface; Clippy do núcleo aprovado. Pipeline wgpu validado obrigatoriamente com Mesa llvmpipe/OpenGL, adaptador de software. Não representa medição em GPU física nem interação manual Windows.

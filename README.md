@@ -248,3 +248,7 @@ O [layout HTML corrigido](ui/RV_Studio_Render_Layout_Corrigido.html) segue o vis
 2. Luzes múltiplas e MIS, shader graph, texturas e importação de cena;
 3. Film buffers progressivos, denoise e gerenciamento de cores;
 4. Integração dos dispositivos GPU do Cycles, interface desktop Rust e empacotamento.
+
+## Viewport wgpu e integração SolidCraft
+
+O Ambiente 3D usa malhas persistentes na GPU e matrizes por objeto; arrastar confirma a BVH ao soltar. Arquitetura de câmera e callbacks adaptada do SolidCraft, com licença em [ATTRIBUTION.md](ATTRIBUTION.md). [Escopo e limites](docs/SOLIDCRAFT_VIEWPORT.md): render final CPU e kernel CAD completo ainda pendente. Progresso de volume do núcleo: **1,47%**, sem equivalência funcional.

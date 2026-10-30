@@ -2,9 +2,9 @@
 
 ## Principais correções
 
-**Ambiente 3D**: a janela inicia mostrando geometria real da BVH (OBJ ou cena procedural), colorida por material e iluminada rapidamente. Não exige executar o render final. Clique e arraste com o botão esquerdo para orbitar; role o mouse sobre a visualização para ampliar/reduzir.
+**Ambiente 3D**: a janela inicia desenhando as malhas reais por rasterização wgpu (OBJ ou cena procedural), colorida por material e iluminada rapidamente. Não exige executar o render final. Clique e arraste com o botão esquerdo para orbitar; role o mouse sobre a visualização para ampliar/reduzir.
 
-**Tempo real**: pré-visualização de path tracing **CPU**, atualizada automaticamente após mudanças na câmera, materiais ou luzes. Faz três etapas de refinamento com 1, 3 e 8 amostras por pixel em resolução reduzida. Isto **não é um viewport GPU nem taxas de quadros de jogos**. Quando há mudança durante um cálculo, o resultado obsoleto é descartado e o cálculo atualizado entra na sequência.
+**Tempo real**: pré-visualização de path tracing **CPU**, atualizada automaticamente após mudanças na câmera, materiais ou luzes. Faz três etapas de refinamento com 1, 2 e 4 amostras por pixel em resolução reduzida. Durante a interação, mostra a prévia sólida wgpu; o refinamento continua CPU. Quando há mudança durante um cálculo, o resultado obsoleto é descartado e o cálculo atualizado entra na sequência.
 
 **Imagem final**: o comando RENDERIZAR preserva a imagem final em resolução configurada e salva PNG/BMP. Enquanto o render está em andamento, pode clicar em **Voltar ao ambiente** para visualizar e ajustar a cena. A imagem final permanece disponível em sua aba quando concluída.
 
@@ -24,10 +24,10 @@ O aplicativo integra o renderizador Rust no mesmo processo, sem depender de past
 
 ## Limitações honestas
 
-- Modo Ambiente: **CPU raycast** pela BVH existente, não rasterização por GPU.
+- Modo Ambiente: **rasterização wgpu** com malha persistente, profundidade e transformação por matrizes; cor base e iluminação simples.
 - Modo Tempo real: **path tracing CPU progressivo em baixa resolução**, não atualização a 30/60 FPS nem render GPU acelerado. A cada refinamento o atual integrador reexecuta a amostragem, sem reutilizar accumulation buffers.
 - Modelo e iluminação continuam com as limitações de shading da migração parcial do Cycles.
-- A pré-visualização por material mostra faces trianguladas importadas, mas a lista lateral ainda usa materiais/arquivo como agrupadores; não existe ainda seleção de objeto diretamente na malha nem gizmos de transformação.
+- Seleção de objetos e handles mover/escalar estão implementados. Anéis de rotação, snapping e instâncias ainda faltam.
 - Durante um render completo, a imagem é gravada a partir de um snapshot da cena. É possível voltar ao ambiente enquanto processa; mudanças posteriores não alteram o render que já iniciou.
 - CPU e C++: todo código executável desenvolvido até aqui é Rust; o Cycles C++ é referência e não está integrado.
 
@@ -48,7 +48,7 @@ O renderer agora utiliza uma geração atômica compartilhada para identificar i
 
 As prévias têm debounce de 75 ms (sólida) e 160 ms (tempo real), para não disputar CPU durante cada movimento do mouse. O tamanho padrão do viewport sólido foi reduzido de 680 para 580 pixels de largura e a prévia ray-traced de 420 para 360; as amostras progressivas foram reduzidas de 1→3→8 para 1→2→4. Isso aumenta a responsividade ao custo de resolução/qualidade **apenas da pré-visualização**, sem alterar a resolução, qualidade nem amostras escolhidas para o render final.
 
-O custo total ainda depende da complexidade da malha OBJ e da CPU; não foram implementados rasterização GPU ou sistemas completos de viewport de Blender.
+A seção acima descreve o fallback CPU. O modo padrão agora usa wgpu, sem debounce para navegar no Ambiente. O custo ainda depende da malha e do adaptador.
 
 
 ## Seleção por geometria e F para enquadrar
@@ -78,3 +78,7 @@ O limite é 128 operações por sessão/cena, armazenadas como comandos pequenos
 ## Handles X/Y/Z
 
 Em Mover e Escala, arraste a linha ou ponta de um eixo. O destaque indica o alvo; mover usa pontas circulares, escala usa quadradas. Arrastar para fora aumenta a escala e para dentro reduz. O eixo fica travado durante o gesto, com uma operação no histórico e cancelamento por Esc. Eixos quase alinhados à câmera ficam ocultos. Girar mantém o controle anterior, sem anéis nesta versão.
+
+## Viewport SolidCraft adaptado
+
+Execute `circlesrust-studio.exe` para usar wgpu. `ABRIR_MODO_COMPATIBILIDADE.bat` usa o viewport CPU. Consulte `SOLIDCRAFT_VIEWPORT.md` para a integração, testes e limites: núcleo CAD completo ainda pendente, render final CPU.
